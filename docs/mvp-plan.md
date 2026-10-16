@@ -88,6 +88,8 @@ Phases run in order. Each phase ends with something you can run and check. Rough
 
 ### Phase 0: Setup and de-risking spikes
 
+Progress (2026-10-17): **0.1, 0.2 and 0.3 done**; 0.6 (recursion guard) is built into the hook. Next: 0.4, 0.5, 0.7.
+
 These find the expensive surprises first.
 
 | # | Task | Size | Done when |

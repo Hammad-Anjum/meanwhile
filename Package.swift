@@ -24,6 +24,10 @@ let package = Package(
             ]
         ),
         .executableTarget(name: "MeanwhileHook", dependencies: ["MeanwhileIPC"]),
-        .testTarget(name: "MeanwhileCoreTests", dependencies: ["MeanwhileCore"]),
+        .testTarget(
+            name: "MeanwhileCoreTests",
+            dependencies: ["MeanwhileCore"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )

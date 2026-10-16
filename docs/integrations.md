@@ -7,7 +7,7 @@ Facts checked on 2026-10-16 against:
 - [Codex hooks](https://learn.chatgpt.com/docs/hooks)
 - [Cursor hooks](https://cursor.com/docs/agent/hooks)
 
-Items marked **Verify** must be tested against a real install.
+Items marked **Verify** must be tested against a real install. Rows marked as recorded were checked against real sessions on 2026-10-17; the recordings are test fixtures in `Tests/MeanwhileCoreTests/Fixtures/`.
 
 ## Where hooks are configured
 
@@ -52,13 +52,13 @@ Adapters turn each payload into:
 |---|---|---|---|
 | `session.start` / `session.end` | `SessionStart` / `SessionEnd` | `SessionStart` / `SessionEnd` | `sessionStart` / `sessionEnd` |
 | `turn.start` | `UserPromptSubmit` (`prompt`) | `UserPromptSubmit` | `beforeSubmitPrompt` |
-| `tool.read` | `PostToolUse` on `Read` (`tool_input.file_path`, `offset`, `limit`) | `PostToolUse` on shell reads; parse the command. **Verify** the tool names. | `postToolUse`. Avoid `beforeReadFile`, which is a permission hook that can block. |
-| `tool.edit` | `PostToolUse` on `Edit` (`old_string`, `new_string`) and `Write` (`content`) | `PostToolUse` on `apply_patch`; `tool_input.command` holds the whole patch (`*** Begin Patch` … `*** Add File:` / `*** Update File:`). Seen 2026-10-17. | `afterFileEdit` (`file_path`, `edits[]` with `old_string` / `new_string`) |
+| `tool.read` | `PostToolUse` on `Read` (`tool_input.file_path`, `offset`, `limit`). **Also parse `Bash`:** in the recorded session Claude read files with `cat`/`sed`, not `Read`. | `PostToolUse` on shell reads; parse the command. **Verify** the tool names. | `postToolUse`. Avoid `beforeReadFile`, which is a permission hook that can block. |
+| `tool.edit` | `PostToolUse` on `Edit`: `tool_input` has `old_string`/`new_string`; `tool_response` adds `originalFile` and `structuredPatch` (hunks with `oldStart`, `newStart`, `lines`). `Write` has `content`. | `PostToolUse` on `apply_patch`; `tool_input.command` holds the whole patch (`*** Begin Patch` … `*** Add File:` / `*** Update File:`). Seen 2026-10-17. | `afterFileEdit` (`file_path`, `edits[]` with `old_string` / `new_string`) |
 | `tool.exec` | `PostToolUse` on `Bash` (`tool_response.stdout` / `stderr`) | `PostToolUse` on shell | `afterShellExecution` |
-| `tool.web` | `PostToolUse` on `WebSearch` / `WebFetch`. **Verify** the `tool_response` shape, which is not documented. | **Hookable after all:** `PostToolUse` with `tool_name: "webrun"`. `tool_input` has `search_query[].q` or `open[].ref_id` (the URL); `tool_response` is a list of `{type: "input_text", text}` holding the page text. Seen 2026-10-17, which contradicts the docs. | **No documented hook**. Read it from the transcript. |
+| `tool.web` | `PostToolUse` on `WebSearch`: `tool_input.query`; `tool_response.results` is a list mixing `{content: [{title, url}], tool_use_id}` and plain strings (the search's written summary). `WebFetch` still to record. | **Hookable after all:** `PostToolUse` with `tool_name: "webrun"`. `tool_input` has `search_query[].q` or `open[].ref_id` (the URL); `tool_response` is a list of `{type: "input_text", text}` holding the page text. Seen 2026-10-17, which contradicts the docs. | **No documented hook**. Read it from the transcript. |
 | `agent.thought` | Transcript (assistant text near each edit) | Transcript | `afterAgentThought` (`text`), `afterAgentResponse` (`text`) |
 | `turn.end` | `Stop` (`last_assistant_message`), `StopFailure` | `Stop` (`last_assistant_message`, `turn_id`) | `stop` |
-| `needs.input` | `Notification` (`notification_type`: `permission_prompt`, `idle_prompt`, `elicitation_dialog`), `PermissionRequest` | `PermissionRequest` | No clear signal. **Verify** whether `preToolUse` or another event can stand in. |
+| `needs.input` | **`PermissionRequest`**: fires the moment Claude asks. `Notification` with `permission_prompt` follows about 6 s later; `idle_prompt` arrives about 60 s after `Stop` and is not a needs-input signal. | `PermissionRequest` | No clear signal. **Verify** whether `preToolUse` or another event can stand in. |
 
 **Common fields used:**
 - **Claude Code:** `session_id`, `transcript_path`, `cwd`, `hook_event_name`, `prompt_id`; tool events add `tool_name`, `tool_input`, `tool_response`, `tool_use_id`, `duration_ms`.
