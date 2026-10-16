@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meanwhile Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --desk:#2B2E35; --bar:#1D1F24; --bg:#16171B; --bg-2:#121316; --surface:#1B1D22; --surface-2:#1F2228;
+  --line:#2A2D34; --line-2:#2C3038; --text:#ECEDEF; --text-2:#C9CCD3; --muted:#A3A7B0; --faint:#8E929C;
+  --accent:#E8B04B; --right:#5FB3FF; --wrong:#FF8A5C;
+  --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--desk);color:var(--text);font-family:var(--sans);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent)}
+
+/* menu bar + notch */
+.menubar{position:relative;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--bar);font-size:13px;color:#D5D7DC;z-index:30}
+.menubar .left{display:flex;gap:18px}.menubar .left b{font-weight:600}
+.menubar .right{font-family:var(--mono);font-size:12px}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);height:34px;min-width:200px;background:#000;border:none;border-radius:0 0 14px 14px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 14px;transition:min-width .25s ease}
+.notch.live{min-width:320px}
+.notch .nl{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--accent)}
+.notch .nr{display:flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;background:var(--text);color:#000;font-size:12px;font-weight:600}
+.notch .nr.empty{display:none}
+.notch-drop{position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(600px,calc(100vw - 32px));background:#000;border-radius:0 0 28px 28px;padding:46px 22px 18px;z-index:25;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}
+.pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}.notch{transition:none}}
+
+/* workspace */
+.workspace{height:calc(100% - 34px);display:flex;gap:20px;padding:24px;align-items:stretch}
+.term{flex:1;min-width:0;display:flex;flex-direction:column;background:#0F1012;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.titlebar{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--bg-2);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.tl{width:12px;height:12px;border-radius:50%;display:inline-block}
+.titlebar .name{flex:1;text-align:center;margin-right:52px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--bg-2);font-size:13px;color:var(--muted)}
+.toolbar .grp{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{min-height:32px;padding:0 10px;border:none;background:transparent;color:var(--muted);font-size:13px}
+.seg button[aria-pressed="true"]{background:#2A2D34;color:var(--text);font-weight:600}
+.toolbar select{min-height:32px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:0 8px;font-size:13px}
+.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line-2);background:transparent;color:var(--text-2);font-size:14px}
+.btn.sm{min-height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn.primary{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.btn.accent{background:var(--accent);color:#1A1407;border-color:var(--accent);font-weight:600}
+.spacer{flex:1}
+.log{flex:1;overflow:auto;padding:16px;font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--text-2)}
+.log .l{display:flex;gap:10px}
+.log .b{flex:none;width:12px}
+.log .sys{color:var(--faint)}
+.log .you{color:var(--text)}
+.log .tool .b{color:var(--accent)}
+.log .ok .b{color:var(--right)}
+.log .srch .b{color:#5FD0B5}
+.prompt{display:flex;gap:10px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13px}
+.prompt span{color:var(--accent)}
+.prompt input{flex:1;min-width:0;min-height:40px;background:transparent;border:none;outline:none;font-family:var(--mono);font-size:13px}
+.prompt input:focus-visible{outline:none}
+.prompt:focus-within{background:#131417}
+
+/* side panel */
+.panel{width:420px;flex:none;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.panel[hidden]{display:none}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 12px 16px;border-bottom:1px solid var(--line);background:var(--bg-2)}
+.brand{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px}
+.icon-btn{width:44px;height:44px;border:none;background:transparent;color:var(--muted);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{background:#22252B}
+.pbody{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.pfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-top:1px solid var(--line);background:var(--bg-2)}
+.pfoot .mid{font-size:12px;color:var(--faint);text-align:center}
+.linkbtn{border:none;background:none;color:var(--accent);padding:0;font-size:12px;text-decoration:underline;text-underline-offset:3px;min-height:24px}
+
+/* question */
+.qtop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:500}
+.chip i{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dots{display:flex;gap:6px;align-items:center}
+.dots span{display:inline-block;height:6px;width:6px;border-radius:3px;background:#3A3E47}
+.dots span.on{width:18px;background:var(--text)}
+.dots span.done{background:#6B707B}
+.qtext{margin:0;font-size:19px;line-height:1.35;font-weight:600;letter-spacing:-.01em}
+.compact .qtext{font-size:17px}
+.ref{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line-2);font-family:var(--mono);font-size:12px;color:#C4C7CE}
+.new{font-family:var(--sans);font-size:11px;font-weight:600;color:#0B201B;background:#5FD0B5;border-radius:4px;padding:1px 6px}
+.opts{display:flex;flex-direction:column;gap:8px}
+.compact .opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.opt{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;text-align:left;padding:10px 12px;border-radius:10px;font-size:14px;line-height:1.4;background:var(--surface-2);border:1px solid var(--line-2);color:var(--text)}
+.compact .opt{background:#141518}
+.opt:hover:not([disabled]){border-color:#4A4F5A}
+.opt .k{flex:none;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;background:#2A2D34;color:var(--text-2)}
+.opt .t{flex:1}
+.opt.right{background:rgba(95,179,255,.12);border-color:var(--right)}
+.opt.right .k{background:var(--right);color:#0B1B2B}
+.opt.wrong{background:rgba(255,138,92,.12);border-color:var(--wrong)}
+.opt.wrong .k{background:var(--wrong);color:#2B1206}
+.opt.dim{opacity:.55}
+.opt[disabled]{cursor:default}
+.tf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ghost{align-self:flex-start;min-height:44px;padding:0 4px;border:none;background:transparent;color:var(--muted);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:13px;color:var(--muted)}
+.row{display:flex;gap:8px}
+.inp{flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface-2);font-size:14px}
+textarea.inp{padding:10px 12px;min-height:88px;resize:vertical;line-height:1.45}
+.fb{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:12px;background:#1C1E23;border:1px solid var(--line-2)}
+.compact .fb{background:#111214}
+.verdict{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.fb p{margin:0;font-size:14px;line-height:1.55;color:var(--text-2)}
+.src{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.ask{font-size:12.5px;color:var(--muted)}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.pick{min-height:44px;border-radius:8px;font-size:13px;background:transparent;color:var(--text-2);border:1px solid var(--line-2)}
+.pick[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.sep{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.banner{padding:10px 12px;border-radius:10px;background:rgba(95,179,255,.10);border:1px solid rgba(95,179,255,.35);font-size:13px;line-height:1.45;color:var(--text)}
+.note{padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:13px;line-height:1.45;color:var(--text-2)}
+.empty-state{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding:8px 0;color:var(--text-2);font-size:14px;line-height:1.5}
+.empty-state h2{margin:0;font-size:17px;color:var(--text)}
+.kbd{font-family:var(--mono);font-size:11px;color:var(--muted);padding:2px 6px;border:1px solid #3A3E47;border-radius:4px}
+.nhint{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--faint);margin-top:12px}
+
+/* recap */
+.score{display:flex;align-items:baseline;gap:10px}
+.score b{font-size:40px;font-weight:600;letter-spacing:-.02em}
+.rlist{display:flex;flex-direction:column}
+.ritem{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.ritem:last-child{border-bottom:none}
+.ritem .m{flex:1;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.ritem .m small{font-size:12px}
+.ritem .w{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* settings */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
+.modal[hidden]{display:none}
+.win{width:min(1120px,100%);height:min(900px,100%);display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.wbody{flex:1;display:flex;min-height:0}
+.wmain{flex:1;min-width:0;padding:24px 28px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.wside{width:300px;flex:none;padding:24px 20px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:24px;overflow:auto}
+.wmain h1{margin:0;font-size:22px;font-weight:600}
+.lede{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.deck{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.deck.off{opacity:.55}
+.dhead{display:flex;align-items:flex-start;gap:14px}
+.dhead .sw-dot{flex:none;width:10px;height:10px;margin-top:6px;border-radius:50%}
+.dhead .info{flex:1;display:flex;flex-direction:column;gap:4px}
+.dhead h2{margin:0;font-size:15px;font-weight:600}
+.dhead p{margin:0;font-size:13.5px;color:var(--text-2);line-height:1.45}
+.dhead p.n{font-size:12.5px;color:var(--muted)}
+.switch{flex:none;width:52px;height:44px;border:none;background:transparent;padding:0;display:flex;align-items:center;justify-content:center}
+.switch .tr{position:relative;display:block;width:44px;height:26px;border-radius:13px;background:#3A3E47;transition:background .15s}
+.switch .kn{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+.switch[aria-checked="true"] .kn{left:21px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding-left:24px}
+.cbtn{min-height:32px;padding:0 12px;border-radius:999px;font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line-2)}
+.cbtn[aria-pressed="true"]{background:#2A2D34;color:var(--text)}
+.adddeck{display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:12px;border:1px dashed #3A3E47}
+.adddeck label{font-size:14px;font-weight:600}
+.sgroup{display:flex;flex-direction:column;gap:8px}
+.sgroup h2{margin:0;font-size:14px;font-weight:600}
+.choice{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:44px;padding:8px 12px;border-radius:10px;font-size:14px;text-align:left;background:transparent;border:1px solid var(--line-2)}
+.choice small{font-size:12px;color:var(--muted)}
+.choice[aria-pressed="true"]{background:#24262C;border-color:var(--text)}
+.check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--text)}
+.check small{display:block;font-size:12px;color:var(--muted)}
+.wside select{min-height:40px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font-size:14px}
+
+@media (max-width:900px){
+  body{overflow:auto}
+  .workspace{flex-direction:column;height:auto;padding:16px}
+  .term{min-height:480px}
+  .panel{width:100%}
+  .menubar .left span:not(:first-child){display:none}
+  .wbody{flex-direction:column;overflow:auto}
+  .wside{width:100%;border-left:none;border-top:1px solid var(--line)}
+  .wmain{overflow:visible}
+  .compact .opts{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="menubar">
+  <div class="left"><b>Terminal</b><span>Shell</span><span>Edit</span><span>View</span><span>Window</span></div>
+  <button class="notch" id="notch" aria-label="Meanwhile in the notch" aria-expanded="false">
+    <span class="nl" id="notchLeft"></span>
+    <span class="nr empty" id="notchRight"></span>
+  </button>
+  <div class="right" id="clock"></div>
+</header>
+<div class="notch-drop" id="notchDrop" hidden></div>
+
+<div class="workspace">
+  <section class="term" aria-label="Fake Claude Code terminal">
+    <div class="titlebar">
+      <span class="tl" style="background:#FF5F57" aria-hidden="true"></span>
+      <span class="tl" style="background:#FEBC2E" aria-hidden="true"></span>
+      <span class="tl" style="background:#28C840" aria-hidden="true"></span>
+      <span class="name">acme-api · claude</span>
+    </div>
+    <div class="toolbar">
+      <div class="grp">Repo
+        <div class="seg" id="repoSeg">
+          <button data-v="code" aria-pressed="true">Has code</button>
+          <button data-v="empty" aria-pressed="false">Empty</button>
+        </div>
+      </div>
+      <div class="grp"><label for="runLen">Run length</label>
+        <select id="runLen">
+          <option value="30">30 s</option>
+          <option value="60" selected>60 s</option>
+          <option value="90">90 s</option>
+        </select>
+      </div>
+      <button class="btn sm" id="finishNow" hidden>Finish now</button>
+      <span class="spacer"></span>
+      <button class="btn sm" id="openPanel">Show panel</button>
+      <button class="btn sm" id="openSettings">Settings</button>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <form class="prompt" id="promptForm">
+      <span aria-hidden="true">&gt;</span>
+      <label for="promptInput" style="position:absolute;left:-9999px">Prompt</label>
+      <input id="promptInput" autocomplete="off" placeholder="Try: add rate limiting, and research how many of our users have ADHD">
+    </form>
+  </section>
+
+  <aside class="panel" id="panel" hidden aria-label="Meanwhile quiz panel">
+    <div class="phead">
+      <div>
+        <div class="brand">Meanwhile</div>
+        <div class="status" id="pStatus"></div>
+      </div>
+      <button class="icon-btn" id="closePanel" aria-label="Hide panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="pbody" id="pBody"></div>
+    <div class="pfoot" id="pFoot"></div>
+  </aside>
+</div>
+
+<div class="modal" id="settings" hidden>
+  <div class="win" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <div class="titlebar">
+      <span class="tl" style="background:#FF5F57" aria-hidden="true"></span>
+      <span class="tl" style="background:#FEBC2E" aria-hidden="true"></span>
+      <span class="tl" style="background:#28C840" aria-hidden="true"></span>
+      <span class="name">Meanwhile Settings</span>
+      <button class="btn sm" id="closeSettings">Done</button>
+    </div>
+    <div class="wbody">
+      <div class="wmain">
+        <div>
+          <h1 id="setTitle">Decks</h1>
+          <p class="lede">Choose what Meanwhile asks you about. Questions mix across every deck that’s on. Sub-topics can be switched off one by one.</p>
+        </div>
+        <div id="deckList" style="display:flex;flex-direction:column;gap:14px"></div>
+        <form class="adddeck" id="addDeck">
+          <label for="newDeck">Add your own deck</label>
+          <div class="row">
+            <input class="inp" id="newDeck" placeholder="Any topic, a doc or a URL, e.g. Postgres indexing">
+            <button class="btn primary" type="submit">Create deck</button>
+          </div>
+        </form>
+      </div>
+      <div class="wside" id="sideSettings"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ---------- data ---------- */
+const DECKS = {
+  codebase:  { name:'Your codebase',    color:'#E8B04B', bg:'rgba(232,176,75,.14)',
+               desc:'Questions about this repo and the change the agent is making right now.',
+               note:'Waits until the repo has code, so a first prompt in an empty folder is skipped.',
+               chips:['Current diff','Why this decision','Architecture','Dependencies','Tests'] },
+  research:  { name:'Session research', color:'#5FD0B5', bg:'rgba(95,208,181,.14)',
+               desc:'Facts, figures and sources the agent found with web search in this session.',
+               note:'Only appears when the agent actually searched. Every fact keeps its source link.',
+               chips:['Figures and stats','User needs'] },
+  llm:       { name:'LLM fundamentals', color:'#B9A8FF', bg:'rgba(185,168,255,.14)',
+               desc:'How language models work under the hood.',
+               chips:['Attention','KV cache','Tokenization','Sampling and temperature','Context windows','Fine-tuning vs. RAG'] },
+  system:    { name:'System design',    color:'#8FD16A', bg:'rgba(143,209,106,.14)',
+               desc:'Trade-offs you meet when building real systems.',
+               chips:['Caching','Queues','Databases and indexes','Consistency','Rate limiting','Scaling'] },
+  prompting: { name:'Prompting',        color:'#F28FB0', bg:'rgba(242,143,176,.14)',
+               desc:'Writing prompts and agent instructions that work.',
+               chips:['Structure','Few-shot examples','Tool use','Evals','Context management'] }
+};
+
+// availableAt: fraction of the agent run after which the question exists (e.g. after the edit happens)
+const QUESTIONS = [
+  // codebase (sample repo "acme-api")
+  { id:'cb1', deck:'codebase', chip:'Why this decision', type:'mc', availableAt:0.38,
+    text:'Why does the rate limiter keep its counters in Redis instead of an in-memory Map?',
+    ref:'api/rate_limit.ts · lines 12–40',
+    options:['Redis reads are faster than reading from memory','The API runs as several instances, so every instance must see the same count','A Map can’t store timestamps','The Map was leaking memory under load'],
+    correct:1,
+    explain:'Each instance behind the load balancer has its own memory. With a Map, a user could get the limit once per instance. Redis gives every instance one shared counter.',
+    source:'From this session’s diff and the agent’s reasoning' },
+  { id:'cb2', deck:'codebase', chip:'Current diff', type:'mc', availableAt:0.4,
+    text:'The agent just added Retry-After to the 429 response. Where does its value come from?',
+    ref:'api/rate_limit.ts · +18 −4',
+    options:['A fixed 60 seconds','The time left in the user’s current window','A header the client sends','A random back-off'],
+    correct:1,
+    explain:'The handler reads the expiry of the user’s window key in Redis and returns the seconds left, so clients know exactly when to retry.',
+    source:'Diff: api/rate_limit.ts' },
+  { id:'cb3', deck:'codebase', chip:'Architecture', type:'mc', availableAt:0,
+    text:'Where in this API is the rate limit checked before a request reaches a route?',
+    ref:'api/server.ts',
+    options:['Inside each route handler','In middleware registered in server.ts','In the database layer','In the load balancer config'],
+    correct:1,
+    explain:'server.ts registers the limiter as middleware before the routers, so every route gets it and no handler has to remember.',
+    source:'Read: api/server.ts' },
+  { id:'cb4', deck:'codebase', chip:'Tests', type:'tf', availableAt:0.75,
+    text:'True or false: the new rate-limit tests need a real Redis server running.',
+    ref:'api/rate_limit.spec.ts',
+    answer:false,
+    explain:'The tests swap in an in-memory Redis mock, so they run anywhere, including CI, without a server.',
+    source:'Diff: api/rate_limit.spec.ts' },
+  { id:'cb5', deck:'codebase', chip:'Dependencies', type:'mc', availableAt:0,
+    text:'Why is ioredis listed under dependencies and not devDependencies?',
+    ref:'package.json',
+    options:['It is only used in tests','The rate limiter uses it at runtime in production','npm requires it','It is a peer of Express'],
+    correct:1,
+    explain:'Anything the running server imports must be in dependencies, or a production install would leave it out.',
+    source:'Read: package.json' },
+
+  // research (only if the run included a web search)
+  { id:'rs1', deck:'research', chip:'Figures and stats', type:'short', availableAt:0.3,
+    text:'The agent searched for ADHD rates in your target users. What share did its source report?',
+    ref:'WebSearch · this session',
+    answer:'[67%] of [your demographic]',
+    explain:'This figure shapes your onboarding and reminder design, so it is worth knowing without looking it up. (Sample data in this mockup.)',
+    source:'Source: [source title and URL the agent found]' },
+  { id:'rs2', deck:'research', chip:'User needs', type:'explain', availableAt:0.32,
+    text:'In one or two sentences: how should that figure change your app’s onboarding?',
+    ref:'Based on this session’s research',
+    answer:'Keep steps short and show progress, let people save and come back, and give them control over reminders. Long forms lose people who struggle with attention.',
+    explain:'An explain-back question. In the real app, a model grades your answer against the research and your product notes.',
+    source:'Builds on: WebSearch result above' },
+
+  // LLM fundamentals
+  { id:'ll1', deck:'llm', chip:'KV cache', type:'mc',
+    text:'While a model generates text, what does the KV cache store?',
+    options:['The model’s weights, compressed for fast loading','Earlier prompts and replies, shared across users','The key and value vectors of earlier tokens, so attention doesn’t recompute them','The attention scores from the last layer'],
+    correct:2,
+    explain:'Each new token attends to every earlier token. Keeping their keys and values for each layer means a step computes only the new token. The cost is memory, which grows with context length.',
+    source:'Deck: LLM fundamentals' },
+  { id:'ll2', deck:'llm', chip:'Attention', type:'mc',
+    text:'In self-attention, what decides how much token A attends to token B?',
+    options:['How far apart A and B are in the text','A’s query compared with B’s key (scaled dot product, then softmax)','How often B appeared in training data','A fixed weight for each pair of positions'],
+    correct:1,
+    explain:'Each token’s query is scored against every key. Softmax turns the scores into weights, and those weights mix the value vectors.',
+    source:'Deck: LLM fundamentals' },
+  { id:'ll3', deck:'llm', chip:'Tokenization', type:'tf',
+    text:'True or false: a token is always one whole word.',
+    answer:false,
+    explain:'Most models use subword tokens. Common words can be one token, rare words split into pieces, and spaces and punctuation count too.',
+    source:'Deck: LLM fundamentals' },
+  { id:'ll4', deck:'llm', chip:'Sampling and temperature', type:'mc',
+    text:'What happens when you lower the temperature toward 0?',
+    options:['The model runs faster','Output becomes more predictable because the most likely tokens win more often','The context window grows','Responses use fewer tokens'],
+    correct:1,
+    explain:'Temperature reshapes the probability distribution before sampling. Lower values sharpen it toward the top token, higher values flatten it.',
+    source:'Deck: LLM fundamentals' },
+  { id:'ll5', deck:'llm', chip:'Context windows', type:'mc',
+    text:'A chat grows past the model’s context window. What happens to the oldest messages?',
+    options:['The model remembers them in its weights','The model can’t see them unless the app summarizes or re-sends them','They are compressed automatically by the model','Nothing, the window grows'],
+    correct:1,
+    explain:'The model only sees what is sent in the request. Apps drop, trim or summarize older turns to fit.',
+    source:'Deck: LLM fundamentals' },
+  { id:'ll6', deck:'llm', chip:'Fine-tuning vs. RAG', type:'mc',
+    text:'Your docs change every week and answers must cite them. Fine-tuning or RAG?',
+    options:['Fine-tuning, retrained weekly','RAG: fetch the current docs when the question is asked','Neither, use a bigger model','A longer system prompt'],
+    correct:1,
+    explain:'Retrieval brings in today’s text at question time and lets you cite it. Fine-tuning is better for style or format than for fresh facts.',
+    source:'Deck: LLM fundamentals' },
+
+  // System design
+  { id:'sd1', deck:'system', chip:'Caching', type:'mc',
+    text:'What is a cache stampede?',
+    options:['The cache fills up and evicts everything','Many requests miss the cache at once and all hit the database','Two caches disagree','Cache keys collide'],
+    correct:1,
+    explain:'When a hot key expires, every request rebuilds it at the same moment. Fixes include locks, early refresh and jittered expiry.',
+    source:'Deck: System design' },
+  { id:'sd2', deck:'system', chip:'Queues', type:'mc',
+    text:'Why send welcome emails from a queue instead of inside the sign-up request?',
+    options:['Emails are smaller that way','The request returns fast, and failed sends can be retried','Queues encrypt the email','It is required by SMTP'],
+    correct:1,
+    explain:'The user isn’t kept waiting on a slow third party, and a worker can retry with back-off if the provider is down.',
+    source:'Deck: System design' },
+  { id:'sd3', deck:'system', chip:'Databases and indexes', type:'tf',
+    text:'True or false: adding an index makes writes to that table faster.',
+    answer:false,
+    explain:'Indexes speed up reads that use them, but every insert and update must also update the index, so writes get a little slower.',
+    source:'Deck: System design' },
+  { id:'sd4', deck:'system', chip:'Rate limiting', type:'mc',
+    text:'What does a token bucket rate limiter allow?',
+    options:['Exactly one request per second, no bursts','Short bursts up to the bucket size, then a steady rate','Unlimited requests for logged-in users','Requests only at fixed times'],
+    correct:1,
+    explain:'Tokens refill at a steady rate up to a maximum. A full bucket lets a burst through, then the refill rate takes over.',
+    source:'Deck: System design' },
+  { id:'sd5', deck:'system', chip:'Consistency', type:'mc',
+    text:'What does read-your-writes consistency promise?',
+    options:['Every user sees every write instantly','After you write, your own later reads see that write','Writes are never lost','Reads never block writes'],
+    correct:1,
+    explain:'It is a per-user promise. Others may still see the old value for a while, but you won’t.',
+    source:'Deck: System design' },
+
+  // Prompting
+  { id:'pr1', deck:'prompting', chip:'Few-shot examples', type:'mc',
+    text:'What is few-shot prompting?',
+    options:['Giving the model a short time limit','Putting a few worked input and output examples in the prompt','Asking the same question several times','Using a smaller model'],
+    correct:1,
+    explain:'Examples show the format and judgment you want more reliably than describing them.',
+    source:'Deck: Prompting' },
+  { id:'pr2', deck:'prompting', chip:'Structure', type:'mc',
+    text:'Why wrap a pasted document in tags like <document>…</document>?',
+    options:['Tags make the prompt shorter','So the model can tell your instructions apart from the material','Models ignore text outside tags','It turns on a special mode'],
+    correct:1,
+    explain:'Clear boundaries stop the model from mixing up what to do with what to read, and make it easy to refer to the material by name.',
+    source:'Deck: Prompting' },
+  { id:'pr3', deck:'prompting', chip:'Evals', type:'mc',
+    text:'What is the main job of an eval set for a prompt?',
+    options:['Make the prompt longer','Check each change against fixed cases before you ship it','Train the model','Count tokens'],
+    correct:1,
+    explain:'Without evals, a fix for one case can quietly break three others.',
+    source:'Deck: Prompting' },
+  { id:'pr4', deck:'prompting', chip:'Context management', type:'tf',
+    text:'True or false: putting more context in a prompt always gives better answers.',
+    answer:false,
+    explain:'Irrelevant context can distract the model, and it adds cost and latency. Relevant, well-labelled context beats more context.',
+    source:'Deck: Prompting' },
+  { id:'pr5', deck:'prompting', chip:'Tool use', type:'mc',
+    text:'Who mainly reads a tool’s description?',
+    options:['The end user','The model, to decide when and how to call the tool','The API gateway','Nobody, it is documentation only'],
+    correct:1,
+    explain:'The description is part of the prompt. Vague descriptions lead to wrong or missed tool calls.',
+    source:'Deck: Prompting' }
+];
+
+const TYPE_INFO = {
+  mc:{label:'Multiple choice', hint:'Fastest, fits a short wait'},
+  short:{label:'Short answer', hint:'Type a few words'},
+  explain:{label:'Explain it back', hint:'AI grades your explanation'},
+  tf:{label:'True or false', hint:'Quick checks'}
+};
+
+/* ---------- state ---------- */
+const S = {
+  decksOn:{codebase:true,research:true,llm:true,system:false,prompting:true},
+  chipOff:[],
+  typesOn:{mc:true,short:true,explain:true,tf:true},
+  mix:'balanced', onFinish:'finish', display:'both', delay:4, perWait:4,
+  customDecks:[],
+  repoHasCode:true, runCount:0, seen:[],
+  run:null, asked:[], cur:null, results:[], showRecap:false, panelOpen:false, notchOpen:false
+};
+const SAVE_KEYS = ['decksOn','chipOff','typesOn','mix','onFinish','display','delay','perWait','customDecks','seen'];
+try {
+  const saved = JSON.parse(localStorage.getItem('meanwhile-settings') || 'null');
+  if (saved) SAVE_KEYS.forEach(k => { if (saved[k] !== undefined) S[k] = saved[k]; });
+} catch (e) {}
+function save(){
+  try { const o = {}; SAVE_KEYS.forEach(k => o[k] = S[k]); localStorage.setItem('meanwhile-settings', JSON.stringify(o)); } catch (e) {}
+}
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k === 'html') el.innerHTML = v; // only used with static icon strings
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+const ICON = {
+  check:(c)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`,
+  x:(c)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+  code:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>`,
+  q:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`
+};
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const showsPanel = () => S.display !== 'notch';
+const showsNotch = () => S.display !== 'panel';
+
+/* ---------- agent run (simulated) ---------- */
+function runElapsed(){ return S.run ? (S.run.status === 'done' ? S.run.duration : Math.min((Date.now() - S.run.start) / 1000, S.run.duration)) : 0; }
+function runFrac(){ return S.run ? runElapsed() / S.run.duration : 0; }
+
+function startRun(prompt){
+  if (S.run && S.run.status === 'running') return;
+  const research = /research|search|how many|percent|stat|users|adhd|market|survey/i.test(prompt);
+  const emptyRepo = !S.repoHasCode;
+  const duration = Number($('runLen').value);
+  const steps = [];
+  if (emptyRepo) steps.push([0.02, 'tool', 'Write package.json, api/server.ts (new project)']);
+  else steps.push([0.02, 'tool', 'Read api/server.ts, api/routes/*.ts (6 files)']);
+  if (research) {
+    steps.push([0.14, 'srch', 'WebSearch "ADHD prevalence in young adults"']);
+    steps.push([0.28, 'srch', 'Found 8 results · 1 figure saved to Meanwhile']);
+  }
+  steps.push([0.36, 'tool', 'Edit api/rate_limit.ts (+18 −4)']);
+  steps.push([0.52, 'tool', 'Edit api/server.ts (+3 −1)']);
+  steps.push([0.66, 'tool', 'Write api/rate_limit.spec.ts']);
+  steps.push([0.74, 'tool', 'Bash npm test']);
+  steps.push([0.92, 'ok', '14 tests passed']);
+  S.run = { status:'running', start:Date.now(), duration, research, emptyRepo, steps, shown:0, prompt };
+  S.asked = []; S.results = []; S.cur = null; S.showRecap = false; S.notchOpen = false;
+  logLine('you', '>', prompt);
+  $('finishNow').hidden = false;
+  if (emptyRepo && S.decksOn.codebase) logLine('sys', '·', 'Meanwhile: repo is empty, so codebase questions wait until the agent has written code.');
+  renderAll();
+}
+
+function finishRun(){
+  if (!S.run || S.run.status !== 'running') return;
+  S.run.status = 'done';
+  S.run.steps.forEach((st, i) => { if (i >= S.run.shown) logLine(st[1], st[1] === 'ok' ? '✓' : '●', st[2]); });
+  S.run.shown = S.run.steps.length;
+  logLine('ok', '✓', 'Done. Added a shared rate limit with Retry-After.');
+  S.runCount++;
+  if (!S.repoHasCode) { S.repoHasCode = true; renderRepoSeg(); }
+  $('finishNow').hidden = true;
+  const midQuestion = S.cur && !S.cur.answered;
+  if (S.onFinish === 'hide') {
+    S.panelOpen = false; S.notchOpen = false; S.cur = null;
+    S.showRecap = S.results.length > 0;
+  } else if (!midQuestion) {
+    S.cur = null;
+    S.showRecap = S.results.length > 0;
+    if (!S.showRecap && S.panelOpen) S.panelOpen = false;
+  }
+  renderAll();
+}
+
+function tick(){
+  $('clock').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if (S.run && S.run.status === 'running') {
+    const f = runFrac();
+    while (S.run.shown < S.run.steps.length && S.run.steps[S.run.shown][0] <= f) {
+      const st = S.run.steps[S.run.shown++];
+      logLine(st[1], st[1] === 'ok' ? '✓' : '●', st[2]);
+    }
+    if (!S.run.opened && runElapsed() >= S.delay) {
+      S.run.opened = true;
+      if (showsPanel()) { S.panelOpen = true; ensureCurrent(); renderPanel(); }
+    }
+    if (f >= 1) { finishRun(); return; }
+    // a waiting panel picks up a question as soon as one becomes available
+    if (S.panelOpen && !S.cur && !S.showRecap && S.asked.length < S.perWait) { ensureCurrent(); if (S.cur) renderPanel(); }
+    renderNotch(); renderStatus();
+  }
+}
+
+function logLine(kind, bullet, text){
+  const el = h('div', {class:'l ' + kind}, h('span', {class:'b'}, bullet), h('span', {}, text));
+  $('log').append(el);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+
+/* ---------- question selection ---------- */
+function eligible(){
+  const f = runFrac();
+  return QUESTIONS.filter(q => {
+    if (!S.decksOn[q.deck]) return false;
+    if (S.chipOff.includes(q.deck + ':' + q.chip)) return false;
+    if (!S.typesOn[q.type]) return false;
+    if (q.deck === 'codebase' && S.run && S.run.emptyRepo) return false;
+    if (q.deck === 'research' && !(S.run && S.run.research)) return false;
+    if ((q.availableAt || 0) > f) return false;
+    if (S.asked.includes(q.id)) return false;
+    return true;
+  });
+}
+function priority(q){
+  const work = q.deck === 'codebase' || q.deck === 'research';
+  let p = S.mix === 'work' ? (work ? 0 : 1.2) : S.mix === 'learn' ? (work ? 1.2 : 0) : 0;
+  if (q.deck === 'research') p -= 0.6;     // fresh session facts first, while they matter
+  if (!S.seen.includes(q.id)) p -= 0.4;   // unseen before seen
+  return p + Math.random();
+}
+function ensureCurrent(){
+  if (S.cur || S.showRecap) return;
+  if (!S.run || S.run.status !== 'running') return;
+  if (S.asked.length >= S.perWait) return;
+  const pool = eligible();
+  if (!pool.length) return;
+  pool.sort((a, b) => priority(a) - priority(b));
+  const q = pool[0];
+  S.asked.push(q.id);
+  if (!S.seen.includes(q.id)) { S.seen.push(q.id); save(); }
+  S.cur = { q, picked:null, revealed:false, answered:false, correct:null, typed:'', conf:null, self:null };
+}
+function answer(correct, extra){
+  Object.assign(S.cur, extra || {}, { answered:true, correct });
+  S.results.push({ q:S.cur.q, correct, conf:null });
+  renderAll();
+}
+function nextQuestion(){
+  S.cur = null;
+  if (!S.run || S.run.status === 'done') { S.showRecap = S.results.length > 0; if (!S.showRecap) S.panelOpen = false; }
+  else ensureCurrent();
+  renderAll();
+}
+function nextReview(r){
+  if (!r.correct) return 'tomorrow';
+  if (r.conf === 0) return 'in 2 days';
+  if (r.conf === 2) return 'in 7 days';
+  return 'in 4 days';
+}
+
+/* ---------- rendering: question ---------- */
+function questionView(compact){
+  const c = S.cur, q = c.q, d = DECKS[q.deck];
+  const wrap = h('div', {class: compact ? 'compact' : '', style:'display:flex;flex-direction:column;gap:14px'});
+  const dots = h('div', {class:'dots', 'aria-label':`Question ${S.asked.length} of up to ${S.perWait}`});
+  for (let i = 0; i < S.perWait; i++) dots.append(h('span', {class: i === S.asked.length - 1 ? 'on' : i < S.asked.length - 1 ? 'done' : ''}));
+  wrap.append(h('div', {class:'qtop'},
+    h('span', {class:'chip', style:`background:${d.bg};color:${d.color}`}, h('i', {style:`background:${d.color}`}), d.name + ' · ' + q.chip),
+    dots));
+  if (S.run && S.run.status === 'done' && !c.answered)
+    wrap.append(h('div', {class:'banner'}, 'The agent finished. Finish this one, then you’ll see your recap.'));
+  wrap.append(h('h1', {class:'qtext'}, q.text));
+  if (q.ref && !compact) wrap.append(h('div', {class:'ref'}, h('span', {html:ICON.code}), q.ref, q.deck === 'research' ? h('span', {class:'new'}, 'New') : null));
+
+  if (q.type === 'mc') {
+    const opts = h('div', {class:'opts'});
+    q.options.forEach((label, i) => {
+      let cls = 'opt';
+      if (c.answered) cls += i === q.correct ? ' right' : i === c.picked ? ' wrong' : ' dim';
+      const b = h('button', {class:cls, disabled:c.answered, onclick:() => answer(i === q.correct, {picked:i})},
+        h('span', {class:'k'}, compact ? String(i + 1) : 'ABCD'[i]), h('span', {class:'t'}, label));
+      if (c.answered && i === q.correct) b.append(h('span', {html:ICON.check('#5FB3FF'), 'aria-label':'Correct answer'}));
+      if (c.answered && i === c.picked && i !== q.correct) b.append(h('span', {html:ICON.x('#FF8A5C'), 'aria-label':'Your answer'}));
+      opts.append(b);
+    });
+    wrap.append(opts);
+  }
+  if (q.type === 'tf') {
+    const row = h('div', {class:'tf'});
+    [true, false].forEach((v, i) => {
+      let cls = 'opt';
+      if (c.answered) cls += v === q.answer ? ' right' : v === c.picked ? ' wrong' : ' dim';
+      row.append(h('button', {class:cls, disabled:c.answered, onclick:() => answer(v === q.answer, {picked:v})},
+        h('span', {class:'k'}, String(i + 1)), h('span', {class:'t'}, v ? 'True' : 'False')));
+    });
+    wrap.append(row);
+  }
+  if ((q.type === 'short' || q.type === 'explain') && !c.revealed) {
+    const id = 'ans-' + (compact ? 'n' : 'p');
+    const field = q.type === 'short'
+      ? h('input', {class:'inp', id, placeholder:'e.g. about two thirds', value:c.typed})
+      : h('textarea', {class:'inp', id, placeholder:'Type your explanation…'}, c.typed);
+    field.addEventListener('input', e => { c.typed = e.target.value; });
+    const check = h('button', {class:'btn accent', type:'button', onclick:() => { c.revealed = true; renderAll(); }}, 'Check');
+    wrap.append(h('div', {class:'field'},
+      h('label', {for:id}, q.type === 'short' ? 'Your answer, in a few words' : 'Your explanation'),
+      q.type === 'short' ? h('div', {class:'row'}, field, check) : h('div', {style:'display:flex;flex-direction:column;gap:8px'}, field, h('div', {}, check))));
+  }
+  if (!c.answered && !c.revealed && (q.type === 'mc' || q.type === 'tf'))
+    wrap.append(h('button', {class:'ghost', onclick:() => answer(false, {picked:null})}, 'I don’t know, show me'));
+
+  // feedback
+  if (c.answered || c.revealed) {
+    const fb = h('div', {class:'fb'});
+    let verdict, color;
+    if (q.type === 'short' || q.type === 'explain') {
+      verdict = c.answered ? (c.correct ? 'Marked as right' : 'Marked as missed') : 'Compare with yours';
+      color = c.answered ? (c.correct ? 'var(--right)' : 'var(--wrong)') : '#5FD0B5';
+    } else if (c.correct) { verdict = 'Right'; color = 'var(--right)'; }
+    else if (c.picked === null) { verdict = 'Here’s the answer'; color = 'var(--text)'; }
+    else { verdict = 'Not quite'; color = 'var(--wrong)'; }
+    fb.append(h('div', {class:'verdict', style:`color:${color}`}, verdict));
+    if (q.type === 'short') fb.append(h('p', {style:'color:var(--text)'}, 'Answer: ', h('strong', {}, q.answer)));
+    if (q.type === 'explain') {
+      fb.append(h('p', {style:'color:var(--text)'}, h('strong', {}, 'Model answer: '), q.answer));
+      if (c.typed.trim()) fb.append(h('p', {}, h('strong', {}, 'Grader (simulated): '),
+        c.typed.trim().length > 40 ? 'You cover the main idea. Compare the details with the model answer.' : 'Too short to grade well. Compare with the model answer.'));
+    }
+    fb.append(h('p', {}, q.explain));
+    fb.append(h('div', {class:'src'}, q.source));
+    if ((q.type === 'short' || q.type === 'explain') && !c.answered) {
+      fb.append(h('div', {class:'sep'}, h('div', {class:'ask'}, 'Did you get it?'),
+        h('div', {class:'two'},
+          h('button', {class:'pick', onclick:() => answer(true)}, 'I had it'),
+          h('button', {class:'pick', onclick:() => answer(false)}, 'I missed it'))));
+    } else if (c.answered) {
+      const row = h('div', {class:'three'});
+      ['Guessed', 'Fairly sure', 'Knew it'].forEach((label, i) => row.append(
+        h('button', {class:'pick', 'aria-pressed': String(c.conf === i), onclick:() => {
+          c.conf = i; const r = S.results[S.results.length - 1]; if (r && r.q === q) r.conf = i; renderAll();
+        }}, label)));
+      fb.append(h('div', {class:'sep'}, h('div', {class:'ask'}, 'How sure were you? This sets when it comes back.'), row));
+    }
+    wrap.append(fb);
+  }
+  return wrap;
+}
+
+function recapView(){
+  const right = S.results.filter(r => r.correct).length;
+  const wrap = h('div', {style:'display:flex;flex-direction:column;gap:14px'});
+  wrap.append(h('div', {}, h('div', {style:'font-size:13px;color:var(--muted)'}, 'This wait'),
+    h('div', {class:'score'}, h('b', {}, `${right} of ${S.results.length}`), h('span', {style:'color:var(--text-2)'}, 'right'))));
+  const list = h('div', {class:'rlist'});
+  S.results.forEach(r => {
+    const d = DECKS[r.q.deck];
+    list.append(h('div', {class:'ritem'},
+      h('span', {html: r.correct ? ICON.check('#5FB3FF') : ICON.x('#FF8A5C'), 'aria-label': r.correct ? 'Right' : 'Missed'}),
+      h('div', {class:'m'}, h('span', {}, r.q.text.length > 70 ? r.q.text.slice(0, 68) + '…' : r.q.text), h('small', {style:`color:${d.color}`}, d.name + ' · ' + r.q.chip)),
+      h('span', {class:'w'}, nextReview(r))));
+  });
+  wrap.append(list);
+  const missed = S.results.filter(r => !r.correct);
+  if (missed.length) wrap.append(h('div', {class:'note'}, h('strong', {}, 'To review: ' + missed.map(r => r.q.chip).join(', ')),
+    h('div', {}, 'Missed questions come back tomorrow, and keep coming back until they stick.')));
+  return wrap;
+}
+
+function waitingView(){
+  const done = S.asked.length >= S.perWait;
+  return h('div', {class:'empty-state'},
+    h('h2', {}, done ? 'That’s enough for this wait' : 'Getting a question ready'),
+    done ? 'You hit your limit of ' + S.perWait + ' questions. Keep an eye on the agent now.'
+         : 'No question fits your decks yet. Codebase and research questions appear as soon as the agent edits code or finds something. Turn on more decks in Settings for more variety.');
+}
+
+function idleView(){
+  return h('div', {class:'empty-state'},
+    h('h2', {}, 'Nothing running'),
+    'Questions appear here a few seconds after your agent starts working. Type a prompt in the terminal to start a fake run.');
+}
+
+/* ---------- rendering: panel, notch, status ---------- */
+function renderStatus(){
+  const st = $('pStatus'); st.textContent = '';
+  if (S.run && S.run.status === 'running') st.append(h('span', {class:'dot pulse'}), 'Claude Code · working · ' + fmt(runElapsed()));
+  else if (S.run) st.append(h('span', {html:ICON.check('#5FB3FF'), style:'display:flex'}), 'Claude Code · finished · ' + fmt(S.run.duration));
+  else st.append('No agent running');
+}
+
+function renderPanel(){
+  $('panel').hidden = !S.panelOpen;
+  $('openPanel').textContent = S.panelOpen ? 'Hide panel' : 'Show panel';
+  if (!S.panelOpen) return;
+  renderStatus();
+  const body = $('pBody'), foot = $('pFoot');
+  // keep typed text if user is mid-typing and nothing structural changed
+  body.textContent = ''; foot.textContent = '';
+  const on = Object.keys(DECKS).filter(k => S.decksOn[k]).length + S.customDecks.length;
+  const decksLink = h('div', {class:'mid'}, on + ' decks on · ', h('button', {class:'linkbtn', onclick:openSettings}, 'Edit'));
+  if (S.showRecap) {
+    body.append(recapView());
+    foot.append(h('button', {class:'btn', onclick:() => { S.showRecap = false; S.panelOpen = false; renderAll(); }}, 'Close'),
+      decksLink,
+      h('button', {class:'btn primary', onclick:() => { S.showRecap = false; S.panelOpen = false; renderAll(); $('promptInput').focus(); }}, 'Back to terminal'));
+  } else if (S.cur) {
+    body.append(questionView(false));
+    foot.append(h('button', {class:'btn', onclick:nextQuestion}, 'Skip'), decksLink,
+      h('button', {class:'btn primary', onclick:nextQuestion}, S.run && S.run.status === 'done' ? 'See recap' : 'Next question'));
+  } else {
+    body.append(S.run && S.run.status === 'running' ? waitingView() : idleView());
+    foot.append(h('span'), decksLink, h('span'));
+  }
+}
+
+function renderNotch(){
+  const L = $('notchLeft'), R = $('notchRight'), n = $('notch');
+  L.textContent = ''; R.textContent = '';
+  const running = S.run && S.run.status === 'running';
+  n.classList.toggle('live', !!S.run);
+  if (running) {
+    L.append(h('span', {class:'dot pulse'}), fmt(runElapsed()));
+    const ready = (S.cur && !S.cur.answered ? 1 : 0) + Math.max(0, Math.min(eligible().length, S.perWait - S.asked.length));
+    if (ready > 0) { R.classList.remove('empty'); R.append(String(ready), h('span', {html:ICON.q, style:'display:flex'})); }
+    else R.classList.add('empty');
+  } else if (S.run) {
+    L.append(h('span', {html:ICON.check('#5FB3FF'), style:'display:flex'}), 'Done');
+    if (S.results.length) { R.classList.remove('empty'); R.append(`${S.results.filter(r => r.correct).length}/${S.results.length}`); }
+    else R.classList.add('empty');
+  } else R.classList.add('empty');
+  n.setAttribute('aria-expanded', String(S.notchOpen));
+
+  const drop = $('notchDrop');
+  drop.hidden = !S.notchOpen;
+  if (!S.notchOpen) return;
+  drop.textContent = '';
+  const head = h('div', {style:'display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-family:var(--mono);font-size:12px;color:var(--muted)'});
+  if (running) head.append(h('span', {style:'display:flex;align-items:center;gap:8px'}, h('span', {class:'dot pulse'}), 'Claude Code · working · ' + fmt(runElapsed()) + ' · acme-api'));
+  else head.append(h('span', {}, S.run ? 'Claude Code · finished' : 'No agent running'));
+  drop.append(head);
+  if (S.showRecap) drop.append(recapView());
+  else if (S.cur) drop.append(questionView(true));
+  else drop.append(running ? waitingView() : idleView());
+  const actions = h('div', {style:'display:flex;gap:4px'});
+  if (S.cur) actions.append(h('button', {class:'btn sm', style:'border:none', onclick:nextQuestion}, S.cur.answered ? 'Next' : 'Skip'));
+  actions.append(h('button', {class:'btn sm', style:'border:none', onclick:() => { S.notchOpen = false; S.panelOpen = true; renderAll(); }}, 'Open side panel'));
+  drop.append(h('div', {class:'nhint'}, h('span', {}, S.cur ? 'Press 1–4 to answer · Esc to close' : 'Esc to close'), actions));
+}
+
+function renderRepoSeg(){
+  $('repoSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.v === 'code') === S.repoHasCode)));
+}
+
+function renderAll(){ renderPanel(); renderNotch(); }
+
+/* ---------- settings ---------- */
+function renderSettings(){
+  const list = $('deckList'); list.textContent = '';
+  Object.entries(DECKS).forEach(([id, d]) => {
+    const on = !!S.decksOn[id];
+    const sw = h('button', {class:'switch', role:'switch', 'aria-checked':String(on), 'aria-label':d.name + ' deck',
+      onclick:() => { S.decksOn[id] = !on; save(); renderSettings(); renderAll(); }},
+      h('span', {class:'tr', style: on ? `background:${d.color}` : ''}, h('span', {class:'kn'})));
+    const chips = h('div', {class:'chips'});
+    d.chips.forEach(chip => {
+      const key = id + ':' + chip, chipOn = !S.chipOff.includes(key);
+      chips.append(h('button', {class:'cbtn', 'aria-pressed':String(chipOn), disabled:!on, style: chipOn ? `border-color:${d.color}` : '',
+        onclick:() => { S.chipOff = chipOn ? S.chipOff.concat(key) : S.chipOff.filter(k => k !== key); save(); renderSettings(); }}, chip));
+    });
+    list.append(h('section', {class:'deck' + (on ? '' : ' off')},
+      h('div', {class:'dhead'}, h('span', {class:'sw-dot', style:`background:${d.color}`}),
+        h('div', {class:'info'}, h('h2', {}, d.name), h('p', {}, d.desc), d.note ? h('p', {class:'n'}, d.note) : null), sw),
+      chips));
+  });
+  S.customDecks.forEach((name, i) => {
+    list.append(h('section', {class:'deck'},
+      h('div', {class:'dhead'}, h('span', {class:'sw-dot', style:'background:#C9CCD3'}),
+        h('div', {class:'info'}, h('h2', {}, name), h('p', {class:'n'}, 'Custom deck. In the real app, questions are written by AI from this topic. This mockup has no questions for it yet.')),
+        h('button', {class:'btn sm', onclick:() => { S.customDecks.splice(i, 1); save(); renderSettings(); renderAll(); }}, 'Remove'))));
+  });
+
+  const side = $('sideSettings'); side.textContent = '';
+  const choiceGroup = (title, key, opts) => h('div', {class:'sgroup'}, h('h2', {}, title),
+    ...opts.map(([v, label, hint]) => h('button', {class:'choice', 'aria-pressed':String(S[key] === v),
+      onclick:() => { S[key] = v; save(); renderSettings(); renderAll(); }}, h('span', {style:'font-weight:600'}, label), hint ? h('small', {}, hint) : null)));
+  side.append(choiceGroup('Mix', 'mix', [['work', 'Mostly my work', 'Codebase and research first'], ['balanced', 'Balanced', 'Everything shuffled'], ['learn', 'Mostly learning', 'Generic decks first']]));
+  side.append(h('div', {class:'sgroup'}, h('h2', {}, 'Question types'),
+    ...Object.entries(TYPE_INFO).map(([t, info]) => {
+      const cb = h('input', {type:'checkbox', id:'t-' + t});
+      cb.checked = !!S.typesOn[t];
+      cb.addEventListener('change', () => { S.typesOn[t] = cb.checked; save(); });
+      return h('label', {class:'check', for:'t-' + t}, cb, h('span', {}, info.label, h('small', {}, info.hint)));
+    })));
+  side.append(choiceGroup('Show questions in', 'display', [['panel', 'Side panel'], ['notch', 'Notch only'], ['both', 'Both']]));
+  side.append(choiceGroup('When the agent finishes', 'onFinish', [['finish', 'Let me finish the question'], ['hide', 'Hide right away']]));
+  const sel = (label, key, opts) => {
+    const s = h('select', {id:'s-' + key}, ...opts.map(([v, l]) => { const o = h('option', {value:v}, l); if (S[key] === v) o.selected = true; return o; }));
+    s.addEventListener('change', () => { S[key] = Number(s.value); save(); });
+    return h('div', {class:'sgroup'}, h('label', {for:'s-' + key, style:'font-size:14px;font-weight:600'}, label), s);
+  };
+  side.append(sel('Start asking after', 'delay', [[2, '2 seconds'], [4, '4 seconds'], [10, '10 seconds'], [20, '20 seconds']]));
+  side.append(sel('Questions per wait', 'perWait', [[2, 'Up to 2'], [3, 'Up to 3'], [4, 'Up to 4'], [6, 'Up to 6']]));
+  side.append(h('button', {class:'btn sm', style:'align-self:flex-start', onclick:() => { S.seen = []; save(); }}, 'Reset question history'));
+}
+function openSettings(){ renderSettings(); $('settings').hidden = false; $('closeSettings').focus(); }
+function closeSettings(){ $('settings').hidden = true; renderAll(); }
+
+/* ---------- wiring ---------- */
+$('promptForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('promptInput').value.trim();
+  if (!v) return;
+  if (S.run && S.run.status === 'running') { logLine('sys', '·', 'The agent is still working. Wait for it, or press Finish now.'); return; }
+  $('promptInput').value = '';
+  startRun(v);
+});
+$('repoSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.repoHasCode = b.dataset.v === 'code'; renderRepoSeg();
+});
+$('finishNow').addEventListener('click', finishRun);
+$('openPanel').addEventListener('click', () => { S.panelOpen = !S.panelOpen; if (S.panelOpen) ensureCurrent(); renderAll(); });
+$('closePanel').addEventListener('click', () => { S.panelOpen = false; renderAll(); });
+$('notch').addEventListener('click', () => {
+  if (showsNotch()) { S.notchOpen = !S.notchOpen; if (S.notchOpen) ensureCurrent(); }
+  else { S.panelOpen = true; ensureCurrent(); }
+  renderAll();
+});
+$('openSettings').addEventListener('click', openSettings);
+$('closeSettings').addEventListener('click', closeSettings);
+$('settings').addEventListener('click', e => { if (e.target === $('settings')) closeSettings(); });
+$('addDeck').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('newDeck').value.trim(); if (!v) return;
+  S.customDecks.push(v); $('newDeck').value = ''; save(); renderSettings();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!$('settings').hidden) { closeSettings(); return; }
+    if (S.notchOpen) { S.notchOpen = false; renderNotch(); return; }
+  }
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (typing || !S.notchOpen || !S.cur || S.cur.answered) return;
+  const n = Number(e.key);
+  const q = S.cur.q;
+  if (q.type === 'mc' && n >= 1 && n <= q.options.length) answer(n - 1 === q.correct, {picked:n - 1});
+  if (q.type === 'tf' && (n === 1 || n === 2)) answer((n === 1) === q.answer, {picked:n === 1});
+});
+
+logLine('sys', '·', 'Meanwhile mockup. This terminal fakes a Claude Code run so you can try the quiz.');
+logLine('sys', '·', 'Type a prompt and press Enter. Mention research or users to make the agent "search", which adds Session research questions.');
+logLine('sys', '·', 'Set Repo to Empty to see codebase questions skipped on a first prompt. Click the notch at the top to answer from there.');
+renderRepoSeg();
+renderAll();
+renderStatus();
+setInterval(tick, 250);
+tick();
+$('promptInput').focus();
+</script>
+</body>
+</html>

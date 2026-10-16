@@ -1,0 +1,15 @@
+import Foundation
+
+/// File locations shared by the app and `meanwhile-hook`.
+public enum MeanwhilePaths {
+    public static var supportDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Meanwhile", isDirectory: true)
+    }
+
+    /// Unix socket the hook writes events to. Must stay under 104 bytes (sockaddr_un limit).
+    public static var socket: URL { supportDirectory.appendingPathComponent("meanwhile.sock") }
+
+    /// Events written here while the app is not running; drained on launch.
+    public static var spool: URL { supportDirectory.appendingPathComponent("spool", isDirectory: true) }
+}
