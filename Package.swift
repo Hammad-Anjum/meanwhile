@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "MeanwhileCore", targets: ["MeanwhileCore"]),
+        .library(name: "MeanwhileIPC", targets: ["MeanwhileIPC"]),
         .executable(name: "meanwhile-hook", targets: ["MeanwhileHook"]),
     ],
     dependencies: [

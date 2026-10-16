@@ -17,6 +17,8 @@ targets:
     dependencies:
       - package: MeanwhileKit
         product: MeanwhileCore
+      - package: MeanwhileKit
+        product: MeanwhileIPC
       - package: DynamicNotchKit
     info:
       path: Sources/Info.plist

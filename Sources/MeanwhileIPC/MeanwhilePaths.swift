@@ -12,4 +12,9 @@ public enum MeanwhilePaths {
 
     /// Events written here while the app is not running; drained on launch.
     public static var spool: URL { supportDirectory.appendingPathComponent("spool", isDirectory: true) }
+
+    /// Every event the app receives, as raw lines. Used to record test fixtures (task 0.3).
+    public static var debugRecording: URL {
+        supportDirectory.appendingPathComponent("debug/events.ndjson")
+    }
 }
