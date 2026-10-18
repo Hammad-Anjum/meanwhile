@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meanwhile Progress</title>
+<!--
+  How to update this page (see the "Visual tracking" rule in CLAUDE.md):
+  1. Before a major change, copy the current two diagrams into a new <details> block
+     under "Earlier snapshots", labelled with the date and what was true then.
+  2. Edit the high-level and low-level Mermaid diagrams below to show the new structure.
+  3. Update the task tables (status pills) and add a line to the change log.
+  Diagram legend: solid boxes are built; dashed boxes are planned.
+-->
+<style>
+  :root {
+    --bg: #fbfbfa; --surface: #ffffff; --text: #1d1d1f; --muted: #6b6b70;
+    --border: #e3e3e0; --accent: #4f46e5;
+    --done-bg: #e7f6ec; --done-fg: #1a7f37;
+    --next-bg: #fff4e0; --next-fg: #9a5b00;
+    --todo-bg: #f0f0f2; --todo-fg: #5b5b62;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2;
+      --border: #2e2e33; --accent: #8b85ff;
+      --done-bg: #12301c; --done-fg: #6fdd8b;
+      --next-bg: #3a2a0c; --next-fg: #f5b955;
+      --todo-bg: #26262b; --todo-fg: #a5a5ad;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2;
+    --border: #2e2e33; --accent: #8b85ff;
+    --done-bg: #12301c; --done-fg: #6fdd8b;
+    --next-bg: #3a2a0c; --next-fg: #f5b955;
+    --todo-bg: #26262b; --todo-fg: #a5a5ad;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin: 40px 0 12px; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  p { margin: 0 0 12px; }
+  .sub { color: var(--muted); margin-bottom: 24px; }
+  code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; margin-bottom: 16px; overflow-x: auto;
+  }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .bar { height: 6px; background: var(--todo-bg); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--done-fg); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td:first-child { white-space: nowrap; color: var(--muted); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .done { background: var(--done-bg); color: var(--done-fg); }
+  .next { background: var(--next-bg); color: var(--next-fg); }
+  .todo { background: var(--todo-bg); color: var(--todo-fg); }
+  .legend { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .mermaid { margin: 0; text-align: center; }
+  details { margin-bottom: 8px; }
+  summary { cursor: pointer; font-weight: 600; }
+  ul { margin: 0 0 12px; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Meanwhile: progress</h1>
+<p class="sub">Last updated 2026-10-19 · Phase 0 (setup and spikes) · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+
+<div class="stats">
+  <div class="stat"><b>4 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:57%"></i></div></div>
+  <div class="stat"><b>4 / 38</b><span>All v1 tasks done</span><div class="bar"><i style="width:11%"></i></div></div>
+  <div class="stat"><b>9 / 9</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
+</div>
+
+<h2>High-level structure</h2>
+<p class="legend">How the pieces connect at runtime. Solid boxes are built; dashed grey boxes are planned.</p>
+<div class="card">
+<pre class="mermaid">
+flowchart LR
+  subgraph Agents
+    CC[Claude Code]
+    CX[Codex]
+    CU[Cursor]:::planned
+  end
+
+  H[meanwhile-hook<br/>CLI]
+  SP[(Spool file<br/>when app is off)]
+
+  CC -- hook JSON on stdin --> H
+  CX -- hook JSON on stdin --> H
+  CU -.-> H
+  H -- one JSON line<br/>Unix socket --> ES
+  H -- app not running --> SP
+  SP -- drained on launch --> LOG
+
+  subgraph App[Meanwhile.app · menu bar]
+    ES[Event server] --> LOG[Event log]
+    LOG --> WIN[Debug Event Log window]
+    LOG --> REC[(debug/events.ndjson)]
+    AD[Agent adapters<br/>shared schema]:::planned
+    STORE[(Event store · SQLite)]:::planned
+    SESS[Session tracker]:::planned
+    QE[Question engine]:::planned
+    SCH[Scheduler]:::planned
+    NOTCH[Notch UI]:::planned
+    ES -.-> AD -.-> STORE -.-> SESS -.-> NOTCH
+    STORE -.-> QE -.-> SCH -.-> NOTCH
+  end
+
+  REC -- scripts/extract_fixture.py --> FIX[(Test fixtures)]
+  QE -.-> LLM[LLM provider<br/>claude -p · codex exec · API]:::planned
+
+  classDef planned stroke-dasharray: 5 4,opacity:0.55
+</pre>
+</div>
+
+<h2>Low-level structure</h2>
+<p class="legend">Swift targets, files and the calls between them. Solid arrows point from caller to callee; dotted "tested by" arrows lead to the tests.</p>
+<div class="card">
+<pre class="mermaid">
+flowchart TB
+  subgraph HookT[MeanwhileHook · executable]
+    MAIN["main.swift<br/>checks MEANWHILE_INTERNAL, reads stdin,<br/>always exit 0, no stdout"]
+  end
+
+  subgraph IPC[MeanwhileIPC · no dependencies]
+    PATHS["MeanwhilePaths<br/>supportDirectory · socket · spool · debugRecording"]
+    WIRE["Wire.envelope()<br/>{v, agent, event, ts, ppid, term, payload}"]
+    US["UnixSocket<br/>address() · send() with 1 s timeout"]
+    SPOOL["Spool<br/>append() · drain()"]
+  end
+
+  subgraph Core[MeanwhileCore · depends on GRDB]
+    ESV["EventServer<br/>start() · stop() · line splitting"]
+    MW["Meanwhile.version"]
+    GRDB[(GRDB · added, not used yet)]:::planned
+  end
+
+  subgraph AppT[App · SwiftUI, XcodeGen]
+    MAPP["MeanwhileApp<br/>MenuBarExtra"]
+    DEL["AppDelegate<br/>opens Event Log at launch"]
+    ELOG["EventLog · @Observable<br/>ingest() · summary() · record()"]
+    ELV["EventLogView<br/>list + JSON detail"]
+    NC["NotchController<br/>stub for task 0.4"]:::planned
+    DNK[(DynamicNotchKit)]:::planned
+  end
+
+  subgraph Tests[MeanwhileCoreTests]
+    T1[EventServerTests]
+    T2[FixtureFormatTests]
+    T3[SmokeTests]
+    FX[(Fixtures/*.ndjson)]
+  end
+
+  MAIN --> WIRE
+  MAIN --> US
+  MAIN --> SPOOL
+  US --> PATHS
+  SPOOL --> PATHS
+  ESV --> US
+  ESV --> PATHS
+  MAPP --> DEL --> ELOG
+  ELOG --> ESV
+  ELOG --> SPOOL
+  ELV --> ELOG
+  NC -.-> DNK
+  ESV -. tested by .-> T1
+  SPOOL -. tested by .-> T1
+  WIRE -. tested by .-> T1
+  FX --> T2
+  MW -. tested by .-> T3
+
+  classDef planned stroke-dasharray: 5 4,opacity:0.55
+</pre>
+</div>
+
+<h2>What's done and what's left</h2>
+<p class="legend">From <code>docs/mvp-plan.md</code>. Sizes: S is under half a day, M is 1–2 days, L is 3+ days.</p>
+
+<div class="card">
+<h3 style="margin-top:0">Phase 0: setup and de-risking spikes</h3>
+<table>
+  <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
+  <tr><td>0.1</td><td>Repo, <code>Package.swift</code>, Xcode app, GRDB and DynamicNotchKit</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.2</td><td>Hook spike: hook → socket → debug window</td><td>M</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.3</td><td>Record Claude Code and Codex fixtures</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.4</td><td>Notch spike: click an answer without taking focus from the terminal</td><td>M</td><td><span class="pill next">Next</span></td></tr>
+  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed</td><td>S</td><td><span class="pill next">Next</span></td></tr>
+  <tr><td>0.6</td><td>Recursion guard (<code>MEANWHILE_INTERNAL=1</code>)</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.7</td><td>Terms check for the subscription route</td><td>S</td><td><span class="pill next">Next</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">Phase 1: vertical slice, Claude Code with generic decks</h3>
+<table>
+  <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
+  <tr><td>1.1</td><td>Shared event schema and Claude Code adapter</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.2</td><td>Event store (GRDB), 30-day retention</td><td>S</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.3</td><td>Session tracker state machine</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.4</td><td>Pack format and 3 starter packs</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.5</td><td>Scheduler v1</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.6</td><td>Notch UI: compact, expanded, feedback, needs-input, done</td><td>L</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.7</td><td>Claude Code hook installer</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">Later phases</h3>
+<table>
+  <tr><th>Phase</th><th>Scope</th><th>Tasks</th><th>Status</th></tr>
+  <tr><td>2</td><td>Codebase questions: repo opt-in, index, providers, evidence packs, generators, validator, context score, predictions</td><td>9</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>3</td><td>Session research deck from web search and fetch results</td><td>2</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>4</td><td>Codex and Cursor adapters, installers, transcript tailer</td><td>4</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>5</td><td>Settings, deck editor, recap, display placement, onboarding, packaging</td><td>7</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>6</td><td>Local counters and two weeks of daily use</td><td>2</td><td><span class="pill todo">To do</span></td></tr>
+</table>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li><b>Subscription route terms (0.7):</b> do Anthropic's and OpenAI's terms let a third-party app run <code>claude -p</code> / <code>codex exec</code> on the user's plan? If not, API keys become the default.</li>
+  <li><b>Release model:</b> open source, open core, or paid.</li>
+  <li><b>Notch focus (0.4):</b> can the notch take a click without taking focus from the terminal? If not, fall back to a floating pill with hover-only answers.</li>
+</ul>
+</div>
+
+<h2>Change log</h2>
+<div class="card">
+<table>
+  <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Added this tracker. Baseline after tasks 0.1–0.3 and 0.6.</td><td>First snapshot</td></tr>
+</table>
+</div>
+
+<h2>Earlier snapshots</h2>
+<div class="card">
+  <p class="legend" style="margin:0">None yet. Before each major change, the current diagrams move here in a collapsed block.</p>
+  <!-- Template:
+  <details>
+    <summary>2026-10-19 · after Phase 0 tasks 0.1–0.3</summary>
+    <pre class="mermaid">…old high-level diagram…</pre>
+    <pre class="mermaid">…old low-level diagram…</pre>
+  </details>
+  -->
+</div>
+
+</main>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  const dark = document.documentElement.dataset.theme === "dark" ||
+    (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "neutral", flowchart: { htmlLabels: true } });
+</script>
+</body>
+</html>

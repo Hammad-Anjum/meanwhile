@@ -2,7 +2,7 @@
 
 Meanwhile is a macOS notch app. While your coding agent works, it asks you short questions about your codebase, about what the agent found in this session, and about topics you choose (LLMs, system design, prompting). The idea: spend the 30–90 second wait learning instead of scrolling, and stay on top of code you didn't write yourself.
 
-Status: **design phase**. Nothing is built yet. A clickable mockup lives in [`../mockup/index.html`](../mockup/index.html).
+Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what's done, what's left, and diagrams of the current structure. A clickable mockup lives in [`../mockup/index.html`](../mockup/index.html).
 
 ## Decisions so far
 
@@ -31,6 +31,7 @@ Status: **design phase**. Nothing is built yet. A clickable mockup lives in [`..
 | [question-engine.md](question-engine.md) | How questions are made for large repos without reading the docs twice, plus validation, timing, and cost |
 | [integrations.md](integrations.md) | Hook mapping for Claude Code, Codex, and Cursor; the shared event schema; gaps per agent |
 | [research.md](research.md) | Competitors, evidence that the problem is real, learning-science basis, sources |
+| [progress.html](progress.html) | Visual tracker: high- and low-level diagrams of the current structure, task status, change log |
 | [mvp-plan.md](mvp-plan.md) | v1 scope, tech stack, repo layout, flows, phased task list, where to start |
 
 ## Open questions

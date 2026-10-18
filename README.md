@@ -2,7 +2,7 @@
 
 A macOS notch app that asks you short questions while your coding agent (Claude Code, Codex, Cursor) works: about your codebase, about what the agent found, and from decks you choose.
 
-Status: early build. See [docs/](docs/README.md) for the design and [docs/mvp-plan.md](docs/mvp-plan.md) for the task list. A clickable mockup is in [mockup/index.html](mockup/index.html).
+Status: early build. See [docs/](docs/README.md) for the design and [docs/mvp-plan.md](docs/mvp-plan.md) for the task list. A clickable mockup is in [mockup/index.html](mockup/index.html). Progress, with diagrams of the current structure, is in [docs/progress.html](docs/progress.html).
 
 ## Build
 
