@@ -25,7 +25,7 @@ v1 is **single-user, local, no server**. "Backend" here means the app's local en
 
 | Part | Choice | Why |
 |---|---|---|
-| App | Swift 6, SwiftUI, AppKit `NSPanel`, macOS 14+ | Native notch window, low memory, one language |
+| Program | One `meanwhile` command (Swift 6, [swift-argument-parser](https://github.com/apple/swift-argument-parser)). `meanwhile run` is a background AppKit process with SwiftUI views and an `NSPanel`; macOS 14+ | A tool developers install from the terminal; native notch window, low memory, one language |
 | Notch | [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) (MIT) | Notch shape and the pill fallback already solved |
 | Storage | SQLite through [GRDB.swift](https://github.com/groue/GRDB.swift) (MIT), FTS5 for search | Local, fast, full-text search included |
 | Hook program | Swift command-line target in the same package | One language; starts in milliseconds |
@@ -48,8 +48,8 @@ meanwhile/
       Providers/          Claude CLI, Codex CLI, Anthropic, OpenAI
       Scheduler/          card selection and spacing
       Install/            hook installers per agent
-    MeanwhileHook/        the small CLI the agents call
-  App/                    SwiftUI app (Xcode project): notch, settings, onboarding
+    MeanwhileHook/        the small CLI the agents call (kept separate so it starts fast)
+    MeanwhileApp/         the `meanwhile` command: run (notch, menu bar icon), setup, uninstall
   Packs/                  generic decks as JSON
   Tests/
     Fixtures/             recorded hook payloads per agent (secrets removed)
@@ -58,15 +58,19 @@ meanwhile/
 
 ## Flows
 
-### First launch (onboarding)
+### First run (`curl … | sh`, then `meanwhile setup`)
 
-1. Welcome: one screen explaining what Meanwhile does.
-2. **Detect agents:** check `~/.claude`, `~/.codex`, `~/.cursor`, and show which are found.
-3. **Install hooks:** for each agent the user picks, show the exact change, back up the file, then merge in Meanwhile's entries.
-4. **Codex only:** "Run `/hooks` in Codex and trust Meanwhile". The app waits for the first Codex event to confirm.
-5. **Pick a provider:** existing subscription (detect `claude` / `codex` on the PATH), or paste an API key (stored in Keychain).
-6. **Pick decks:** codebase, research, and generic decks with topics.
-7. Done. "Send a prompt to your agent to see your first question."
+1. **Install:** `install.sh` downloads `meanwhile` and `meanwhile-hook` from the latest GitHub release into `~/.local/bin`, then runs `meanwhile setup`.
+2. **Welcome:** one short paragraph in the terminal explaining what Meanwhile does.
+3. **Detect agents:** check `~/.claude`, `~/.codex`, `~/.cursor`, and show which are found.
+4. **Install hooks:** for each agent the user picks, show the exact change, back up the file, then merge in Meanwhile's entries.
+5. **Codex only:** "Run `/hooks` in Codex and trust Meanwhile". Setup waits for the first Codex event to confirm, or tells the user how to check later.
+6. **Pick a provider:** `codex exec` if `codex` is on the PATH (the default); otherwise `claude -p` or an API key (stored in Keychain).
+7. **Pick decks:** codebase, research, and generic decks with topics.
+8. **Start in the background:** install a launch agent so `meanwhile run` starts now and at every login.
+9. **Test:** send a test event and show a sample question in the notch. "Send a prompt to your agent to see your first real question."
+
+`--yes` accepts the defaults without prompts. `meanwhile uninstall` removes the hooks (restoring the backups' other entries untouched) and the launch agent.
 
 ### First turn in a new repo
 
@@ -88,12 +92,11 @@ Phases run in order. Each phase ends with something you can run and check. Rough
 
 ### Phase 0: Setup and de-risking spikes
 
-Progress (2026-10-19): **0.1, 0.2, 0.3, 0.6 and 0.7 done** (0.7 findings in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19)). 0.5: `codex exec` (now the default provider) returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`); it must be started with stdin closed or it waits forever. `claude -p` is still to time. A headless `codex exec` turn sends `SessionStart`, `UserPromptSubmit` and `SessionEnd` but no `Stop`. 0.4 is built and needs a hand test:
-1. Run the app. In its menu, choose **Ask Test Question in 3 s**, then click into your terminal and start typing.
-2. When the question opens, click an answer. Then try ⌃⌥1–4 on the next question.
-3. Keep typing. The notch footer reports whether the terminal kept keyboard focus.
-
-A prompt to a hooked agent also opens a question; `Stop` or a permission request hides it. The panel uses `becomesKeyOnlyIfNeeded`, because DynamicNotchKit's panel can otherwise become key on click.
+Progress (2026-10-19): **Phase 0 is done.**
+- 0.4: clicking an answer and ⌃⌥1–4 both work while the terminal keeps keyboard focus (tested by hand). The panel needs `becomesKeyOnlyIfNeeded`, because DynamicNotchKit's panel can otherwise become key on click.
+- 0.5: `codex exec`, the default provider, returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`). It must be started with stdin closed or it waits forever. Timing `claude -p` is deferred until someone picks the Claude route.
+- 0.7: findings are in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19).
+- Seen along the way: a headless `codex exec` turn sends `SessionStart`, `UserPromptSubmit` and `SessionEnd` but no `Stop`. Claude Code sends `PermissionRequest` even when auto mode approves the call, so it does not mean the agent needs you; `Notification` with `notification_type: permission_prompt` or `idle_prompt` does.
 
 These find the expensive surprises first.
 
@@ -117,7 +120,7 @@ These find the expensive surprises first.
 | 1.4 | Pack format (JSON schema) and 3 starter packs: LLM fundamentals, system design, prompting, about 30 cards each, reviewed by hand | M | Packs load; each card passes schema checks |
 | 1.5 | Scheduler v1: pick from enabled decks and topics, interleave, limit per wait, simple spacing (missed → tomorrow; then 2, 4, 7… days by confidence) | M | Unit tests |
 | 1.6 | Notch UI: compact (timer and count), expanded (multiple choice, true/false), feedback with confidence buttons, needs-input, done | L | Matches the mockup; works with real events |
-| 1.7 | Claude Code hook installer: detect, show the change, back up, merge, uninstall | M | Install and uninstall leave `settings.json` exactly as before plus or minus our entries |
+| 1.7 | `meanwhile setup` and `meanwhile uninstall` for Claude Code: detect, show the change, back up, merge hooks; pick the provider; install a launch agent so `meanwhile run` starts at login; show a test question | M | Setup then uninstall leaves `settings.json` exactly as before; a fresh setup reaches a first question |
 | **Exit** | A real Claude Code turn shows a generic question in the notch, hides when the agent needs you, and shows a score on `Stop` | | |
 
 ### Phase 2: Codebase questions
@@ -155,13 +158,13 @@ These find the expensive surprises first.
 
 | # | Task | Size | Done when |
 |---|---|---|---|
-| 5.1 | Settings window: decks and topics, question types, mix, limit per wait, behavior when the agent finishes, provider, per-repo switches | L | Every setting changes behavior |
+| 5.1 | Settings in `~/.config/meanwhile/config.toml` plus `meanwhile config` commands: decks and topics, question types, mix, limit per wait, behavior when the agent finishes, provider, per-repo switches | M | Every setting changes behavior |
 | 5.2 | **Generic deck editor:** add, edit and delete cards; create a deck from a topic (written by AI once, then editable); import and export JSON | M | A custom deck shows up in the notch |
 | 5.3 | Recap view | S | Matches the mockup |
 | 5.4 | Display placement: follow the agent's terminal or editor window; fall back to the built-in notch | M | Works with an external monitor |
-| 5.5 | Onboarding flow (above) | M | A fresh Mac account gets from install to first question in under 3 minutes |
+| 5.5 | Onboarding inside `meanwhile setup` (the flow above, as prompts in the terminal) | S | A fresh Mac account gets from install to first question in under 3 minutes |
 | 5.6 | Auto-pause on short turns and screen sharing; Escape and hover behavior | S | |
-| 5.7 | Packaging: signing, notarization, launch at login | M | A notarized `.dmg` installs on another Mac |
+| 5.7 | Packaging: universal (Apple silicon and Intel) builds on a GitHub release, `install.sh` (`curl … \| sh`) that installs `meanwhile` and `meanwhile-hook` and runs `meanwhile setup`, and `meanwhile update` | M | The one-line install works on another Mac |
 
 ### Phase 6: Use it yourself and measure
 

@@ -5,7 +5,7 @@
 Meanwhile has two parts:
 
 1. **`meanwhile-hook`**: a tiny command-line program. Each agent's hook config calls it on every event. It reads the event JSON from stdin, sends it to the app over a local socket, and exits. It never blocks the agent and never prints a decision.
-2. **`Meanwhile.app`**: a menu bar app (Swift, SwiftUI) that owns everything else: session tracking, the repo index, question generation, scheduling, and the notch UI.
+2. **`meanwhile run`**: a background process (Swift, AppKit, SwiftUI views) with a menu bar icon. It owns everything else: session tracking, the repo index, question generation, scheduling, and the notch UI. The same `meanwhile` program also has `setup` and `uninstall` commands. Meanwhile ships as a command-line tool, not a `.app` ([decision](README.md#decisions-so-far)).
 
 ```mermaid
 flowchart LR

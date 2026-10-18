@@ -24,8 +24,9 @@ final class EventLog {
 
     private(set) var events: [DebugEvent] = []
     private(set) var serverError: String?
-    /// Called with each event's hook name (e.g. `UserPromptSubmit`). Drives the notch spike.
-    @ObservationIgnored var onAgentEvent: ((String) -> Void)?
+    /// Called with each event's hook name (e.g. `UserPromptSubmit`) and the agent's payload.
+    /// Drives the notch spike.
+    @ObservationIgnored var onAgentEvent: ((String, [String: Any]) -> Void)?
     @ObservationIgnored private var server: EventServer?
     @ObservationIgnored private var retainedEventBytes = 0
 
@@ -62,7 +63,7 @@ final class EventLog {
             .map { String(decoding: $0, as: UTF8.self) } ?? ""
         let payload = object["payload"] as? [String: Any] ?? [:]
         let event = payload["hook_event_name"] as? String ?? object["event"] as? String ?? "?"
-        onAgentEvent?(event)
+        onAgentEvent?(event, payload)
         let summary = Self.summary(of: payload)
         let retainedBytes = pretty.utf8.count + summary.utf8.count
         events.append(DebugEvent(

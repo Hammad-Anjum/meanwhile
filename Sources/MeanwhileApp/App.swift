@@ -16,8 +16,21 @@ enum MenuBarApp {
         let delegate = AppDelegate()
         let statusMenu = StatusMenu(delegate: delegate)
         app.delegate = delegate
-        withExtendedLifetime((delegate, statusMenu)) { app.run() }
+        let signals = terminateOnSignals()
+        withExtendedLifetime((delegate, statusMenu, signals)) { app.run() }
         exit(0)
+    }
+
+    /// Ctrl-C and `pkill` quit through `NSApp.terminate`, so `applicationWillTerminate`
+    /// still stops the event server and removes the socket.
+    private static func terminateOnSignals() -> [DispatchSourceSignal] {
+        [SIGINT, SIGTERM].map { number in
+            signal(number, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
+            source.setEventHandler { MainActor.assumeIsolated { NSApp.terminate(nil) } }
+            source.resume()
+            return source
+        }
     }
 
     /// Hidden for an accessory app, but key equivalents still route through it,
@@ -80,11 +93,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Spike wiring: a prompt opens a question; when the agent stops or needs you, step aside.
-        log.onAgentEvent = { [notch] event in
+        // Not on `PermissionRequest`: Claude Code sends it even when auto mode approves the
+        // call. The `Notification` that follows a real prompt to the user is the signal.
+        log.onAgentEvent = { [notch] event, payload in
             switch event {
-            case "UserPromptSubmit": notch.ask()
-            case "PermissionRequest", "Notification", "Stop", "SessionEnd": notch.hide()
-            default: break
+            case "UserPromptSubmit":
+                notch.ask()
+            case "Notification":
+                let type = payload["notification_type"] as? String
+                if type == "permission_prompt" || type == "idle_prompt" { notch.hide() }
+            case "Stop", "StopFailure", "SessionEnd":
+                notch.hide()
+            default:
+                break
             }
         }
         // Until the notch UI exists, the Event Log is the only window, and the menu bar

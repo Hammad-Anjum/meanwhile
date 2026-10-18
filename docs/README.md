@@ -1,8 +1,8 @@
 # Meanwhile
 
-Meanwhile is a macOS notch app. While your coding agent works, it asks you short questions about your codebase, about what the agent found in this session, and about topics you choose (LLMs, system design, prompting). The idea: spend the 30–90 second wait learning instead of scrolling, and stay on top of code you didn't write yourself.
+Meanwhile is a macOS notch tool for developers. While your coding agent works, it asks you short questions about your codebase, about what the agent found in this session, and about topics you choose (LLMs, system design, prompting). The idea: spend the 30–90 second wait learning instead of scrolling, and stay on top of code you didn't write yourself.
 
-Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what's done, what's left, and diagrams of the current structure. A clickable mockup lives in [`../mockup/index.html`](../mockup/index.html).
+Status: **early build**. Phase 0 is done; Phase 1 is next. See [`progress.html`](progress.html) for what's done, what's left, and diagrams of the current structure. A clickable mockup lives in [`../mockup/index.html`](../mockup/index.html).
 
 ## Decisions so far
 
@@ -23,6 +23,8 @@ Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what
 | Team features | After v1. Keep storage ready for a shared bank per repo | 2026-10-17 |
 | Release model | Undecided. Keep the code clean enough to open-source | 2026-10-17 |
 | Fallback if the notch takes focus | Both: floating pill with hover and click answers, plus global hotkeys | 2026-10-19 |
+| Shape | A command-line tool, not an app: one `meanwhile` program that runs the notch in the background (`meanwhile run`) and sets itself up (`meanwhile setup`). A full `.app` only if there are many paying customers | 2026-10-19 |
+| Install | A `curl … \| sh` script that downloads a ready-built program from a GitHub release and runs `meanwhile setup`. A Homebrew tap can come later from the same release files | 2026-10-19 |
 | Provider default | `codex exec` on the user's ChatGPT plan, for now. Claude CLI and API keys remain options | 2026-10-19 |
 
 ## Documents
