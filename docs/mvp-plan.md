@@ -88,7 +88,7 @@ Phases run in order. Each phase ends with something you can run and check. Rough
 
 ### Phase 0: Setup and de-risking spikes
 
-Progress (2026-10-17): **0.1, 0.2 and 0.3 done**; 0.6 (recursion guard) is built into the hook. Next: 0.4, 0.5, 0.7.
+Progress (2026-10-19): **0.1, 0.2, 0.3, 0.6 and 0.7 done** (0.7 findings in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19)). 0.5 is half done: `codex exec` returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`); `claude -p` is still to time. Next: finish 0.5, then 0.4.
 
 These find the expensive surprises first.
 
@@ -176,7 +176,7 @@ These find the expensive surprises first.
 | Risk | Where it shows up | Fallback |
 |---|---|---|
 | Hook payloads change between agent releases | 0.3, 4.x | Fixture tests per agent version; adapters fail quietly |
-| Notch panel steals focus | 0.4 | Floating pill beside the notch; answers only on hover |
+| Notch panel steals focus | 0.4 | Both: a floating pill beside the notch (answers on hover and click), plus global hotkeys to answer without the mouse (decided 2026-10-19) |
 | Subscription route not allowed | 0.7 | API keys as default |
 | Codebase questions not good enough | Phase 2 exit | Raise the context-score threshold; lean on predictions and the primer bank |
 | `claude -p` too slow for live questions | 0.5 | Generate after the turn only; serve live slots from predictions and the bank |

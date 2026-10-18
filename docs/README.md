@@ -22,6 +22,8 @@ Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what
 | Display | Follows the display with the agent's terminal or editor; falls back to the built-in notch | 2026-10-17 |
 | Team features | After v1. Keep storage ready for a shared bank per repo | 2026-10-17 |
 | Release model | Undecided. Keep the code clean enough to open-source | 2026-10-17 |
+| Fallback if the notch takes focus | Both: floating pill with hover and click answers, plus global hotkeys | 2026-10-19 |
+| Provider default | Decide after the terms check (0.7) | 2026-10-19 |
 
 ## Documents
 
@@ -36,9 +38,20 @@ Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what
 
 ## Open questions
 
-1. **Check before building the subscription route:**
-   - Do Anthropic's and OpenAI's terms allow a third-party app to run `claude -p` / `codex exec` on the user's plan for this purpose?
-   - How much of the user's rate limit does it use?
-
-   If the terms don't allow it, API keys become the default.
+1. **Provider default:** the terms check (below) points to API keys as the default, with "use my installed CLI" as an opt-in. Waiting for a decision.
 2. **Release model:** open source, open core, or paid. This affects whether the generic decks and the hook installer are public.
+
+## Terms check: running the agents' CLIs on the user's plan (task 0.7, 2026-10-19)
+
+| Provider | Verdict | Basis |
+|---|---|---|
+| Anthropic (`claude -p`) | **Yes, with conditions.** Spawning the user's own, unmodified `claude` binary, signed in through Anthropic's own flow, is allowed. Handling, storing or forwarding Claude.ai tokens is not. | [Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance): third parties may not "route requests through Free, Pro, or Max plan credentials on behalf of their users" or "collect, store, or intermediate Claude.ai credentials", but this does not "prevent an end user from signing in to the unmodified Claude Code binary with their own Claude subscription". The same page says developer products "should use API key authentication". |
+| OpenAI (`codex exec`) | **Unclear, probably tolerated.** No rule found against a local app running the user's own CLI. Reading `~/.codex/auth.json` or calling the backend directly is not allowed. | [Codex auth docs](https://learn.chatgpt.com/docs/auth): "API keys are still the recommended default for automation"; access tokens "are intended for trusted scripts, schedulers, and private CI runners". The OpenAI Terms of Use page could not be fetched. |
+
+**Usage limits:** on both, CLI calls draw from the same 5-hour and weekly limits as the user's own agent. Anthropic's separate Agent SDK credit is paused as of 2026-10. At about 6,000 tokens a question, several times per turn, Meanwhile competes with the user's main work.
+
+**Rules if the CLI route ships:**
+- Always spawn the unmodified binary and let its own login handle auth.
+- Never read, copy or proxy OAuth tokens or `auth.json`.
+- Warn about usage in the provider picker.
+- Check both policies again before release; Anthropic changed this policy several times in 2026.

@@ -77,11 +77,11 @@
 <main>
 
 <h1>Meanwhile: progress</h1>
-<p class="sub">Last updated 2026-10-19 · Phase 0 (setup and spikes) · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+<p class="sub">Last updated 2026-10-19 (terms check, provider spike) · Phase 0 (setup and spikes) · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
 
 <div class="stats">
-  <div class="stat"><b>4 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:57%"></i></div></div>
-  <div class="stat"><b>4 / 38</b><span>All v1 tasks done</span><div class="bar"><i style="width:11%"></i></div></div>
+  <div class="stat"><b>5 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:71%"></i></div></div>
+  <div class="stat"><b>5 / 38</b><span>All v1 tasks done</span><div class="bar"><i style="width:13%"></i></div></div>
   <div class="stat"><b>9 / 9</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
@@ -199,9 +199,9 @@ flowchart TB
   <tr><td>0.2</td><td>Hook spike: hook → socket → debug window</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>0.3</td><td>Record Claude Code and Codex fixtures</td><td>S</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>0.4</td><td>Notch spike: click an answer without taking focus from the terminal</td><td>M</td><td><span class="pill next">Next</span></td></tr>
-  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed</td><td>S</td><td><span class="pill next">Next</span></td></tr>
+  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed. Codex: valid question in 5.6–7.1 s. Claude: blocked, the CLI is not logged in.</td><td>S</td><td><span class="pill next">In progress</span></td></tr>
   <tr><td>0.6</td><td>Recursion guard (<code>MEANWHILE_INTERNAL=1</code>)</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>0.7</td><td>Terms check for the subscription route</td><td>S</td><td><span class="pill next">Next</span></td></tr>
+  <tr><td>0.7</td><td>Terms check for the subscription route. Anthropic: yes, if the app spawns the unmodified CLI. OpenAI: unclear. Findings in <code>docs/README.md</code>.</td><td>S</td><td><span class="pill done">Done</span></td></tr>
 </table>
 </div>
 
@@ -234,9 +234,9 @@ flowchart TB
 <h2>Open questions</h2>
 <div class="card">
 <ul>
-  <li><b>Subscription route terms (0.7):</b> do Anthropic's and OpenAI's terms let a third-party app run <code>claude -p</code> / <code>codex exec</code> on the user's plan? If not, API keys become the default.</li>
-  <li><b>Release model:</b> open source, open core, or paid.</li>
-  <li><b>Notch focus (0.4):</b> can the notch take a click without taking focus from the terminal? If not, fall back to a floating pill with hover-only answers.</li>
+  <li><b>Provider default:</b> the terms check recommends API keys as the default, with "use my installed CLI" as an opt-in, because CLI calls share the user's agent usage limits. Waiting for a decision.</li>
+  <li><b>Release model:</b> open source, open core, or paid. Still undecided as of 2026-10-19.</li>
+  <li><b>Notch focus (0.4):</b> can the notch take a click without taking focus from the terminal? Decided 2026-10-19: if not, use both a floating pill (hover and click answers) and global hotkeys.</li>
 </ul>
 </div>
 
@@ -244,6 +244,7 @@ flowchart TB
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Terms check (0.7) done. Provider spike (0.5) started with <code>scripts/provider_spike.sh</code>; Codex works. Decided the notch-focus fallback. No structural change.</td><td>Unchanged</td></tr>
   <tr><td>2026-10-19</td><td>Added this tracker. Baseline after tasks 0.1–0.3 and 0.6.</td><td>First snapshot</td></tr>
 </table>
 </div>
