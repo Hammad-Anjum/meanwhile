@@ -23,7 +23,7 @@ Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what
 | Team features | After v1. Keep storage ready for a shared bank per repo | 2026-10-17 |
 | Release model | Undecided. Keep the code clean enough to open-source | 2026-10-17 |
 | Fallback if the notch takes focus | Both: floating pill with hover and click answers, plus global hotkeys | 2026-10-19 |
-| Provider default | Decide after the terms check (0.7) | 2026-10-19 |
+| Provider default | `codex exec` on the user's ChatGPT plan, for now. Claude CLI and API keys remain options | 2026-10-19 |
 
 ## Documents
 
@@ -38,8 +38,7 @@ Status: **early build** (Phase 0). See [`progress.html`](progress.html) for what
 
 ## Open questions
 
-1. **Provider default:** the terms check (below) points to API keys as the default, with "use my installed CLI" as an opt-in. Waiting for a decision.
-2. **Release model:** open source, open core, or paid. This affects whether the generic decks and the hook installer are public.
+1. **Release model:** open source, open core, or paid. This affects whether the generic decks and the hook installer are public.
 
 ## Terms check: running the agents' CLIs on the user's plan (task 0.7, 2026-10-19)
 

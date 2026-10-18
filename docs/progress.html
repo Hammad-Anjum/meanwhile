@@ -122,7 +122,7 @@ flowchart LR
   end
 
   REC -- scripts/extract_fixture.py --> FIX[(Test fixtures)]
-  QE -.-> LLM[LLM provider<br/>claude -p · codex exec · API]:::planned
+  QE -.-> LLM[LLM provider<br/>default: codex exec<br/>also claude -p · API keys]:::planned
 
   classDef planned stroke-dasharray: 5 4,opacity:0.55
 </pre>
@@ -199,7 +199,7 @@ flowchart TB
   <tr><td>0.2</td><td>Hook spike: hook → socket → debug window</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>0.3</td><td>Record Claude Code and Codex fixtures</td><td>S</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>0.4</td><td>Notch spike: click an answer without taking focus from the terminal</td><td>M</td><td><span class="pill next">Next</span></td></tr>
-  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed. Codex: valid question in 5.6–7.1 s. Claude: blocked, the CLI is not logged in.</td><td>S</td><td><span class="pill next">In progress</span></td></tr>
+  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed. Codex (the default provider): valid question in 5.6–7.1 s; start it with stdin closed. Claude: not yet timed.</td><td>S</td><td><span class="pill next">In progress</span></td></tr>
   <tr><td>0.6</td><td>Recursion guard (<code>MEANWHILE_INTERNAL=1</code>)</td><td>S</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>0.7</td><td>Terms check for the subscription route. Anthropic: yes, if the app spawns the unmodified CLI. OpenAI: unclear. Findings in <code>docs/README.md</code>.</td><td>S</td><td><span class="pill done">Done</span></td></tr>
 </table>
@@ -234,7 +234,7 @@ flowchart TB
 <h2>Open questions</h2>
 <div class="card">
 <ul>
-  <li><b>Provider default:</b> the terms check recommends API keys as the default, with "use my installed CLI" as an opt-in, because CLI calls share the user's agent usage limits. Waiting for a decision.</li>
+  <li><b>Claude timing (0.5):</b> run <code>scripts/provider_spike.sh claude 3</code> from a shell where <code>claude</code> is logged in.</li>
   <li><b>Release model:</b> open source, open core, or paid. Still undecided as of 2026-10-19.</li>
   <li><b>Notch focus (0.4):</b> can the notch take a click without taking focus from the terminal? Decided 2026-10-19: if not, use both a floating pill (hover and click answers) and global hotkeys.</li>
 </ul>
@@ -244,6 +244,7 @@ flowchart TB
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Codex chosen as the default provider. Ran the app end to end: spool drain, live socket and a real <code>codex exec</code> turn all arrive in the Event Log.</td><td>Unchanged</td></tr>
   <tr><td>2026-10-19</td><td>Terms check (0.7) done. Provider spike (0.5) started with <code>scripts/provider_spike.sh</code>; Codex works. Decided the notch-focus fallback. No structural change.</td><td>Unchanged</td></tr>
   <tr><td>2026-10-19</td><td>Added this tracker. Baseline after tasks 0.1–0.3 and 0.6.</td><td>First snapshot</td></tr>
 </table>

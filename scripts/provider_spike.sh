@@ -5,7 +5,7 @@
 #     scripts/provider_spike.sh [claude|codex|both] [runs]
 #
 # Runs from an empty temp directory so neither CLI picks up this repo's CLAUDE.md or
-# AGENTS.md, and sets MEANWHILE_INTERNAL=1 so meanwhile-hook ignores these calls (task 0.6).
+# AGENTS.md, closes stdin (codex exec waits forever on an open stdin pipe), and sets MEANWHILE_INTERNAL=1 so meanwhile-hook ignores these calls (task 0.6).
 set -u
 which_provider=${1:-both}
 runs=${2:-1}
@@ -41,7 +41,7 @@ EOF
 run_claude() {
   (cd "$work" && claude -p "$prompt" \
     --output-format json --json-schema "$(cat schema.json)" \
-    --tools "" --no-session-persistence --model haiku) > "$work/out.json" 2> "$work/err.txt"
+    --tools "" --no-session-persistence --model haiku) < /dev/null > "$work/out.json" 2> "$work/err.txt"
   # The structured answer is in .structured_output; fall back to .result.
   python3 -c '
 import json,sys
@@ -53,7 +53,7 @@ print("  cost_usd:", d.get("total_cost_usd"), " api_ms:", d.get("duration_api_ms
 
 run_codex() {
   (cd "$work" && codex exec --skip-git-repo-check --ephemeral --sandbox read-only \
-    --output-schema schema.json -o last.txt "$prompt") > /dev/null 2> "$work/err.txt"
+    --output-schema schema.json -o last.txt "$prompt") < /dev/null > /dev/null 2> "$work/err.txt"
   cat "$work/last.txt"; echo
 }
 

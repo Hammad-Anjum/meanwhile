@@ -88,7 +88,7 @@ Phases run in order. Each phase ends with something you can run and check. Rough
 
 ### Phase 0: Setup and de-risking spikes
 
-Progress (2026-10-19): **0.1, 0.2, 0.3, 0.6 and 0.7 done** (0.7 findings in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19)). 0.5 is half done: `codex exec` returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`); `claude -p` is still to time. Next: finish 0.5, then 0.4.
+Progress (2026-10-19): **0.1, 0.2, 0.3, 0.6 and 0.7 done** (0.7 findings in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19)). 0.5: `codex exec` (now the default provider) returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`); it must be started with stdin closed or it waits forever. `claude -p` is still to time. A headless `codex exec` turn sends `SessionStart`, `UserPromptSubmit` and `SessionEnd` but no `Stop`. Next: 0.4.
 
 These find the expensive surprises first.
 
