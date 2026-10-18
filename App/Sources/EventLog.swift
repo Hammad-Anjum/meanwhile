@@ -19,6 +19,8 @@ struct DebugEvent: Identifiable {
 final class EventLog {
     private(set) var events: [DebugEvent] = []
     private(set) var serverError: String?
+    /// Called with each event's hook name (e.g. `UserPromptSubmit`). Drives the notch spike.
+    @ObservationIgnored var onAgentEvent: ((String) -> Void)?
     @ObservationIgnored private var server: EventServer?
 
     init() {
@@ -42,10 +44,12 @@ final class EventLog {
         let pretty = (try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]))
             .map { String(decoding: $0, as: UTF8.self) } ?? ""
         let payload = object["payload"] as? [String: Any] ?? [:]
+        let event = payload["hook_event_name"] as? String ?? object["event"] as? String ?? "?"
+        onAgentEvent?(event)
         events.append(DebugEvent(
             receivedAt: Date(),
             agent: object["agent"] as? String ?? "?",
-            event: payload["hook_event_name"] as? String ?? object["event"] as? String ?? "?",
+            event: event,
             summary: Self.summary(of: payload),
             prettyJSON: pretty
         ))

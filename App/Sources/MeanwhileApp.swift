@@ -11,6 +11,11 @@ struct MeanwhileApp: App {
             Button("Show Event Log") { appDelegate.showEventLog() }
                 .keyboardShortcut("l")
             Divider()
+            // Task 0.4 spike controls. The delay gives you time to click back into the terminal.
+            Button("Ask Test Question in 3 s") { appDelegate.askSoon() }
+            Button("Compact Notch") { appDelegate.notch.compact() }
+            Button("Hide Notch") { appDelegate.notch.hide() }
+            Divider()
             Button("Quit Meanwhile") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         }
@@ -20,12 +25,28 @@ struct MeanwhileApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let log = EventLog()
+    let notch = NotchController()
     private var eventLogWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Spike wiring: a prompt opens a question; when the agent stops or needs you, step aside.
+        log.onAgentEvent = { [notch] event in
+            switch event {
+            case "UserPromptSubmit": notch.ask()
+            case "PermissionRequest", "Notification", "Stop", "SessionEnd": notch.hide()
+            default: break
+            }
+        }
         // Until the notch UI exists, the Event Log is the only window, and the menu bar
         // icon can be hidden behind the notch. Open the log at launch.
         showEventLog()
+    }
+
+    func askSoon() {
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            notch.ask()
+        }
     }
 
     func showEventLog() {

@@ -88,7 +88,12 @@ Phases run in order. Each phase ends with something you can run and check. Rough
 
 ### Phase 0: Setup and de-risking spikes
 
-Progress (2026-10-19): **0.1, 0.2, 0.3, 0.6 and 0.7 done** (0.7 findings in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19)). 0.5: `codex exec` (now the default provider) returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`); it must be started with stdin closed or it waits forever. `claude -p` is still to time. A headless `codex exec` turn sends `SessionStart`, `UserPromptSubmit` and `SessionEnd` but no `Stop`. Next: 0.4.
+Progress (2026-10-19): **0.1, 0.2, 0.3, 0.6 and 0.7 done** (0.7 findings in [README.md](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19)). 0.5: `codex exec` (now the default provider) returns a valid question in 5.6–7.1 s (`scripts/provider_spike.sh`); it must be started with stdin closed or it waits forever. `claude -p` is still to time. A headless `codex exec` turn sends `SessionStart`, `UserPromptSubmit` and `SessionEnd` but no `Stop`. 0.4 is built and needs a hand test:
+1. Run the app. In its menu, choose **Ask Test Question in 3 s**, then click into your terminal and start typing.
+2. When the question opens, click an answer. Then try ⌃⌥1–4 on the next question.
+3. Keep typing. The notch footer reports whether the terminal kept keyboard focus.
+
+A prompt to a hooked agent also opens a question; `Stop` or a permission request hides it. The panel uses `becomesKeyOnlyIfNeeded`, because DynamicNotchKit's panel can otherwise become key on click.
 
 These find the expensive surprises first.
 

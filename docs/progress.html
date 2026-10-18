@@ -67,7 +67,7 @@
   .next { background: var(--next-bg); color: var(--next-fg); }
   .todo { background: var(--todo-bg); color: var(--todo-fg); }
   .legend { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
-  .mermaid { margin: 0; text-align: center; }
+  .mermaid, .mermaid-later { margin: 0; text-align: center; }
   details { margin-bottom: 8px; }
   summary { cursor: pointer; font-weight: 600; }
   ul { margin: 0 0 12px; padding-left: 20px; }
@@ -77,7 +77,7 @@
 <main>
 
 <h1>Meanwhile: progress</h1>
-<p class="sub">Last updated 2026-10-19 (terms check, provider spike) · Phase 0 (setup and spikes) · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+<p class="sub">Last updated 2026-10-19 (notch spike built) · Phase 0 (setup and spikes) · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
 
 <div class="stats">
   <div class="stat"><b>5 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:71%"></i></div></div>
@@ -116,12 +116,16 @@ flowchart LR
     SESS[Session tracker]:::planned
     QE[Question engine]:::planned
     SCH[Scheduler]:::planned
-    NOTCH[Notch UI]:::planned
+    NOTCH[Notch UI · spike<br/>compact / expanded<br/>sample question]
+    HK[Hotkeys ⌃⌥1–4]
+    LOG -- UserPromptSubmit: ask<br/>Stop, PermissionRequest: hide --> NOTCH
+    HK --> NOTCH
     ES -.-> AD -.-> STORE -.-> SESS -.-> NOTCH
     STORE -.-> QE -.-> SCH -.-> NOTCH
   end
 
   REC -- scripts/extract_fixture.py --> FIX[(Test fixtures)]
+  NOTCH -- click, focus stays<br/>in the terminal --> USER((You))
   QE -.-> LLM[LLM provider<br/>default: codex exec<br/>also claude -p · API keys]:::planned
 
   classDef planned stroke-dasharray: 5 4,opacity:0.55
@@ -132,6 +136,174 @@ flowchart LR
 <p class="legend">Swift targets, files and the calls between them. Solid arrows point from caller to callee; dotted "tested by" arrows lead to the tests.</p>
 <div class="card">
 <pre class="mermaid">
+flowchart TB
+  subgraph HookT[MeanwhileHook · executable]
+    MAIN["main.swift<br/>checks MEANWHILE_INTERNAL, reads stdin,<br/>always exit 0, no stdout"]
+  end
+
+  subgraph IPC[MeanwhileIPC · no dependencies]
+    PATHS["MeanwhilePaths<br/>supportDirectory · socket · spool · debugRecording"]
+    WIRE["Wire.envelope()<br/>{v, agent, event, ts, ppid, term, payload}"]
+    US["UnixSocket<br/>address() · send() with 1 s timeout"]
+    SPOOL["Spool<br/>append() · drain()"]
+  end
+
+  subgraph Core[MeanwhileCore · depends on GRDB]
+    ESV["EventServer<br/>start() · stop() · line splitting"]
+    MW["Meanwhile.version"]
+    GRDB[(GRDB · added, not used yet)]:::planned
+  end
+
+  subgraph AppT[App · SwiftUI, XcodeGen]
+    MAPP["MeanwhileApp<br/>MenuBarExtra"]
+    DEL["AppDelegate<br/>opens Event Log at launch"]
+    ELOG["EventLog · @Observable<br/>ingest() · summary() · record()"]
+    ELV["EventLogView<br/>list + JSON detail"]
+    NC["NotchController<br/>ask() · compact() · hide() · answer()<br/>focus check after each answer"]
+    NM["NotchModel + views<br/>expanded · compact timer and count"]
+    HKS["Hotkeys<br/>Carbon ⌃⌥1–4, only while asking"]
+    DNK[(DynamicNotchKit 1.1<br/>panel: becomesKeyOnlyIfNeeded)]
+  end
+
+  subgraph Tests[MeanwhileCoreTests]
+    T1[EventServerTests]
+    T2[FixtureFormatTests]
+    T3[SmokeTests]
+    FX[(Fixtures/*.ndjson)]
+  end
+
+  MAIN --> WIRE
+  MAIN --> US
+  MAIN --> SPOOL
+  US --> PATHS
+  SPOOL --> PATHS
+  ESV --> US
+  ESV --> PATHS
+  MAPP --> DEL --> ELOG
+  ELOG --> ESV
+  ELOG --> SPOOL
+  ELV --> ELOG
+  DEL -- onAgentEvent --> NC
+  ELOG -. onAgentEvent .-> DEL
+  NC --> NM
+  NC --> HKS
+  NC --> DNK
+  ESV -. tested by .-> T1
+  SPOOL -. tested by .-> T1
+  WIRE -. tested by .-> T1
+  FX --> T2
+  MW -. tested by .-> T3
+
+  classDef planned stroke-dasharray: 5 4,opacity:0.55
+</pre>
+</div>
+
+<h2>What's done and what's left</h2>
+<p class="legend">From <code>docs/mvp-plan.md</code>. Sizes: S is under half a day, M is 1–2 days, L is 3+ days.</p>
+
+<div class="card">
+<h3 style="margin-top:0">Phase 0: setup and de-risking spikes</h3>
+<table>
+  <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
+  <tr><td>0.1</td><td>Repo, <code>Package.swift</code>, Xcode app, GRDB and DynamicNotchKit</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.2</td><td>Hook spike: hook → socket → debug window</td><td>M</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.3</td><td>Record Claude Code and Codex fixtures</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.4</td><td>Notch spike: click an answer without taking focus from the terminal. Built: compact and expanded states, ⌃⌥1–4 hotkeys, focus check after each answer. Waiting on a hand test.</td><td>M</td><td><span class="pill next">Testing</span></td></tr>
+  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed. Codex (the default provider): valid question in 5.6–7.1 s; start it with stdin closed. Claude: not yet timed.</td><td>S</td><td><span class="pill next">In progress</span></td></tr>
+  <tr><td>0.6</td><td>Recursion guard (<code>MEANWHILE_INTERNAL=1</code>)</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>0.7</td><td>Terms check for the subscription route. Anthropic: yes, if the app spawns the unmodified CLI. OpenAI: unclear. Findings in <code>docs/README.md</code>.</td><td>S</td><td><span class="pill done">Done</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">Phase 1: vertical slice, Claude Code with generic decks</h3>
+<table>
+  <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
+  <tr><td>1.1</td><td>Shared event schema and Claude Code adapter</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.2</td><td>Event store (GRDB), 30-day retention</td><td>S</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.3</td><td>Session tracker state machine</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.4</td><td>Pack format and 3 starter packs</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.5</td><td>Scheduler v1</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.6</td><td>Notch UI: compact, expanded, feedback, needs-input, done</td><td>L</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>1.7</td><td>Claude Code hook installer</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">Later phases</h3>
+<table>
+  <tr><th>Phase</th><th>Scope</th><th>Tasks</th><th>Status</th></tr>
+  <tr><td>2</td><td>Codebase questions: repo opt-in, index, providers, evidence packs, generators, validator, context score, predictions</td><td>9</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>3</td><td>Session research deck from web search and fetch results</td><td>2</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>4</td><td>Codex and Cursor adapters, installers, transcript tailer</td><td>4</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>5</td><td>Settings, deck editor, recap, display placement, onboarding, packaging</td><td>7</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>6</td><td>Local counters and two weeks of daily use</td><td>2</td><td><span class="pill todo">To do</span></td></tr>
+</table>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li><b>Claude timing (0.5):</b> run <code>scripts/provider_spike.sh claude 3</code> from a shell where <code>claude</code> is logged in.</li>
+  <li><b>Release model:</b> open source, open core, or paid. Still undecided as of 2026-10-19.</li>
+  <li><b>Notch focus (0.4):</b> built; needs a hand test (see <code>docs/mvp-plan.md</code>, 0.4). can the notch take a click without taking focus from the terminal? Decided 2026-10-19: if not, use both a floating pill (hover and click answers) and global hotkeys.</li>
+</ul>
+</div>
+
+<h2>Change log</h2>
+<div class="card">
+<table>
+  <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Notch spike (0.4): <code>NotchController</code>, notch views, <code>Hotkeys</code>. A prompt from the agent opens a question; <code>Stop</code> or a permission request hides it.</td><td>Both updated; previous snapshot saved</td></tr>
+  <tr><td>2026-10-19</td><td>Codex chosen as the default provider. Ran the app end to end: spool drain, live socket and a real <code>codex exec</code> turn all arrive in the Event Log.</td><td>Unchanged</td></tr>
+  <tr><td>2026-10-19</td><td>Terms check (0.7) done. Provider spike (0.5) started with <code>scripts/provider_spike.sh</code>; Codex works. Decided the notch-focus fallback. No structural change.</td><td>Unchanged</td></tr>
+  <tr><td>2026-10-19</td><td>Added this tracker. Baseline after tasks 0.1–0.3 and 0.6.</td><td>First snapshot</td></tr>
+</table>
+</div>
+
+<h2>Earlier snapshots</h2>
+<div class="card">
+  <p class="legend">Before each major change, the current diagrams move here. Newest first.</p>
+  <details>
+    <summary>2026-10-19 · before the notch spike (after 0.1–0.3, 0.6, 0.7)</summary>
+    <pre class="mermaid-later">
+flowchart LR
+  subgraph Agents
+    CC[Claude Code]
+    CX[Codex]
+    CU[Cursor]:::planned
+  end
+
+  H[meanwhile-hook<br/>CLI]
+  SP[(Spool file<br/>when app is off)]
+
+  CC -- hook JSON on stdin --> H
+  CX -- hook JSON on stdin --> H
+  CU -.-> H
+  H -- one JSON line<br/>Unix socket --> ES
+  H -- app not running --> SP
+  SP -- drained on launch --> LOG
+
+  subgraph App[Meanwhile.app · menu bar]
+    ES[Event server] --> LOG[Event log]
+    LOG --> WIN[Debug Event Log window]
+    LOG --> REC[(debug/events.ndjson)]
+    AD[Agent adapters<br/>shared schema]:::planned
+    STORE[(Event store · SQLite)]:::planned
+    SESS[Session tracker]:::planned
+    QE[Question engine]:::planned
+    SCH[Scheduler]:::planned
+    NOTCH[Notch UI]:::planned
+    ES -.-> AD -.-> STORE -.-> SESS -.-> NOTCH
+    STORE -.-> QE -.-> SCH -.-> NOTCH
+  end
+
+  REC -- scripts/extract_fixture.py --> FIX[(Test fixtures)]
+  QE -.-> LLM[LLM provider<br/>default: codex exec<br/>also claude -p · API keys]:::planned
+
+  classDef planned stroke-dasharray: 5 4,opacity:0.55
+</pre>
+    <pre class="mermaid-later">
 flowchart TB
   subgraph HookT[MeanwhileHook · executable]
     MAIN["main.swift<br/>checks MEANWHILE_INTERNAL, reads stdin,<br/>always exit 0, no stdout"]
@@ -186,78 +358,13 @@ flowchart TB
 
   classDef planned stroke-dasharray: 5 4,opacity:0.55
 </pre>
-</div>
+  </details>
 
-<h2>What's done and what's left</h2>
-<p class="legend">From <code>docs/mvp-plan.md</code>. Sizes: S is under half a day, M is 1–2 days, L is 3+ days.</p>
-
-<div class="card">
-<h3 style="margin-top:0">Phase 0: setup and de-risking spikes</h3>
-<table>
-  <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
-  <tr><td>0.1</td><td>Repo, <code>Package.swift</code>, Xcode app, GRDB and DynamicNotchKit</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>0.2</td><td>Hook spike: hook → socket → debug window</td><td>M</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>0.3</td><td>Record Claude Code and Codex fixtures</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>0.4</td><td>Notch spike: click an answer without taking focus from the terminal</td><td>M</td><td><span class="pill next">Next</span></td></tr>
-  <tr><td>0.5</td><td>Provider spike: <code>claude -p</code> and <code>codex exec</code>, timed. Codex (the default provider): valid question in 5.6–7.1 s; start it with stdin closed. Claude: not yet timed.</td><td>S</td><td><span class="pill next">In progress</span></td></tr>
-  <tr><td>0.6</td><td>Recursion guard (<code>MEANWHILE_INTERNAL=1</code>)</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>0.7</td><td>Terms check for the subscription route. Anthropic: yes, if the app spawns the unmodified CLI. OpenAI: unclear. Findings in <code>docs/README.md</code>.</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-</table>
-</div>
-
-<div class="card">
-<h3 style="margin-top:0">Phase 1: vertical slice, Claude Code with generic decks</h3>
-<table>
-  <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
-  <tr><td>1.1</td><td>Shared event schema and Claude Code adapter</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>1.2</td><td>Event store (GRDB), 30-day retention</td><td>S</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>1.3</td><td>Session tracker state machine</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>1.4</td><td>Pack format and 3 starter packs</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>1.5</td><td>Scheduler v1</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>1.6</td><td>Notch UI: compact, expanded, feedback, needs-input, done</td><td>L</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>1.7</td><td>Claude Code hook installer</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
-</table>
-</div>
-
-<div class="card">
-<h3 style="margin-top:0">Later phases</h3>
-<table>
-  <tr><th>Phase</th><th>Scope</th><th>Tasks</th><th>Status</th></tr>
-  <tr><td>2</td><td>Codebase questions: repo opt-in, index, providers, evidence packs, generators, validator, context score, predictions</td><td>9</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>3</td><td>Session research deck from web search and fetch results</td><td>2</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>4</td><td>Codex and Cursor adapters, installers, transcript tailer</td><td>4</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>5</td><td>Settings, deck editor, recap, display placement, onboarding, packaging</td><td>7</td><td><span class="pill todo">To do</span></td></tr>
-  <tr><td>6</td><td>Local counters and two weeks of daily use</td><td>2</td><td><span class="pill todo">To do</span></td></tr>
-</table>
-</div>
-
-<h2>Open questions</h2>
-<div class="card">
-<ul>
-  <li><b>Claude timing (0.5):</b> run <code>scripts/provider_spike.sh claude 3</code> from a shell where <code>claude</code> is logged in.</li>
-  <li><b>Release model:</b> open source, open core, or paid. Still undecided as of 2026-10-19.</li>
-  <li><b>Notch focus (0.4):</b> can the notch take a click without taking focus from the terminal? Decided 2026-10-19: if not, use both a floating pill (hover and click answers) and global hotkeys.</li>
-</ul>
-</div>
-
-<h2>Change log</h2>
-<div class="card">
-<table>
-  <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
-  <tr><td>2026-10-19</td><td>Codex chosen as the default provider. Ran the app end to end: spool drain, live socket and a real <code>codex exec</code> turn all arrive in the Event Log.</td><td>Unchanged</td></tr>
-  <tr><td>2026-10-19</td><td>Terms check (0.7) done. Provider spike (0.5) started with <code>scripts/provider_spike.sh</code>; Codex works. Decided the notch-focus fallback. No structural change.</td><td>Unchanged</td></tr>
-  <tr><td>2026-10-19</td><td>Added this tracker. Baseline after tasks 0.1–0.3 and 0.6.</td><td>First snapshot</td></tr>
-</table>
-</div>
-
-<h2>Earlier snapshots</h2>
-<div class="card">
-  <p class="legend" style="margin:0">None yet. Before each major change, the current diagrams move here in a collapsed block.</p>
   <!-- Template:
   <details>
     <summary>2026-10-19 · after Phase 0 tasks 0.1–0.3</summary>
-    <pre class="mermaid">…old high-level diagram…</pre>
-    <pre class="mermaid">…old low-level diagram…</pre>
+    <pre class="mermaid-later">…old high-level diagram…</pre>
+    <pre class="mermaid-later">…old low-level diagram…</pre>
   </details>
   -->
 </div>
@@ -268,6 +375,13 @@ flowchart TB
   const dark = document.documentElement.dataset.theme === "dark" ||
     (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
   mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "neutral", flowchart: { htmlLabels: true } });
+  // Diagrams inside closed <details> render at zero size, so draw snapshots when opened.
+  for (const details of document.querySelectorAll("details")) {
+    details.addEventListener("toggle", () => {
+      const nodes = [...details.querySelectorAll("pre.mermaid-later:not([data-processed])")];
+      if (details.open && nodes.length) mermaid.run({ nodes });
+    });
+  }
 </script>
 </body>
 </html>
