@@ -1,23 +1,17 @@
-DERIVED = .build/xcode
-APP = $(DERIVED)/Build/Products/Debug/Meanwhile.app
 HOOK_DIR = $(HOME)/Library/Application Support/Meanwhile/bin
-HOST_ARCH = $(shell uname -m)
 
-.PHONY: project build test run install-hook clean
+.PHONY: build test run install-hook clean
 
-project:
-	cd App && xcodegen generate --quiet
-
-build: project
-	xcodebuild -project App/Meanwhile.xcodeproj -scheme Meanwhile -configuration Debug \
-		-destination "platform=macOS,arch=$(HOST_ARCH)" -derivedDataPath "$(DERIVED)" -quiet build
+build:
+	swift build
 
 test:
 	swift test
 
+# Runs the notch process in the foreground; Ctrl-C or Quit from the menu bar stops it.
 run: build
-	@pkill -x Meanwhile || true
-	open "$(APP)"
+	@pkill -x meanwhile || true
+	.build/debug/meanwhile run
 
 # Builds meanwhile-hook and copies it to where the agents' hook configs point.
 install-hook:
@@ -26,4 +20,4 @@ install-hook:
 	cp ".build/release/meanwhile-hook" "$(HOOK_DIR)/meanwhile-hook"
 
 clean:
-	rm -rf .build App/Meanwhile.xcodeproj
+	rm -rf .build

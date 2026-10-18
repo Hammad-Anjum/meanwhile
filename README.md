@@ -6,15 +6,15 @@ Status: early build. See [docs/](docs/README.md) for the design and [docs/mvp-pl
 
 ## Build
 
-Requires macOS 14+, Xcode 16+, and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+Requires macOS 14+ and a Swift 6 toolchain (Xcode 16+ or the Command Line Tools). Everything builds with SwiftPM.
 
 ```sh
+make build    # swift build: the meanwhile and meanwhile-hook binaries
 make test     # core library tests (swift test)
-make build    # generate App/Meanwhile.xcodeproj and build the app
-make run      # build and launch; look for the icon in the menu bar
+make run      # build and run `meanwhile run` in the foreground; look for the icon in the menu bar
 ```
 
-To work in Xcode: `make project && open App/Meanwhile.xcodeproj`.
+Or directly: `swift run meanwhile run`. `meanwhile --help` lists the commands.
 
 ## Layout
 
@@ -23,6 +23,6 @@ To work in Xcode: `make project && open App/Meanwhile.xcodeproj`.
 | `Sources/MeanwhileIPC` | Paths and wire format shared by the app and the hook |
 | `Sources/MeanwhileCore` | The engine: events, sessions, storage, questions, scheduling |
 | `Sources/MeanwhileHook` | `meanwhile-hook`, the small program agents call from their hooks |
-| `App/` | The SwiftUI menu bar app (project generated from `project.yml`) |
+| `Sources/MeanwhileApp` | The `meanwhile` command: the background notch process and the CLI |
 | `Tests/` | Core tests and recorded hook payloads |
 | `docs/` | Design docs |
