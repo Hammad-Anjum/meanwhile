@@ -42,6 +42,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showEventLog()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        notch.shutdown()
+        log.stop()
+    }
+
     func askSoon() {
         Task {
             try? await Task.sleep(for: .seconds(3))

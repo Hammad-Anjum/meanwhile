@@ -8,6 +8,8 @@ import Foundation
 /// The agent's payload is passed through untouched; adapters in MeanwhileCore parse it.
 public enum Wire {
     public static let version = 1
+    /// Must match the event server's default line limit. This excludes the final newline.
+    public static let maximumLineBytes = 16 * 1024 * 1024
 
     /// Set on Meanwhile's own `claude -p` / `codex exec` calls so their hooks are ignored.
     public static let internalCallVariable = "MEANWHILE_INTERNAL"
@@ -21,7 +23,8 @@ public enum Wire {
         payload: Data,
         environment: [String: String],
         parentPID: Int32,
-        date: Date = Date()
+        date: Date = Date(),
+        payloadWasTruncated: Bool = false
     ) -> Data {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -34,13 +37,23 @@ public enum Wire {
             "ppid": Int(parentPID),
             "term": environment.filter { terminalVariables.contains($0.key) },
         ]
-        if let json = try? JSONSerialization.jsonObject(with: payload, options: [.fragmentsAllowed]) {
+        if payloadWasTruncated {
+            object["payloadTruncated"] = true
+            object["payloadBytesAtLeast"] = payload.count
+        } else if let json = try? JSONSerialization.jsonObject(with: payload, options: [.fragmentsAllowed]) {
             object["payload"] = json
         } else {
             object["payloadRaw"] = String(decoding: payload, as: UTF8.self)
         }
 
         var line = (try? JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])) ?? Data()
+        if line.count > maximumLineBytes {
+            object.removeValue(forKey: "payload")
+            object.removeValue(forKey: "payloadRaw")
+            object["payloadTruncated"] = true
+            object["payloadBytesAtLeast"] = payload.count
+            line = (try? JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])) ?? Data()
+        }
         line.append(0x0A)
         return line
     }

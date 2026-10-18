@@ -574,7 +574,14 @@ function tick(){
     if (f >= 1) { finishRun(); return; }
     // a waiting panel picks up a question as soon as one becomes available
     if (S.panelOpen && !S.cur && !S.showRecap && S.asked.length < S.perWait) { ensureCurrent(); if (S.cur) renderPanel(); }
-    renderNotch(); renderStatus();
+    // Rebuilding the open notch replaces its input/textarea and steals focus on
+    // every 250 ms timer tick. Leave it alone while the user is typing; the next
+    // state change or blur refreshes it normally.
+    const active = document.activeElement;
+    const typingInNotch = S.notchOpen && $('notchDrop').contains(active)
+      && /INPUT|TEXTAREA|SELECT/.test(active.tagName);
+    if (!typingInNotch) renderNotch();
+    renderStatus();
   }
 }
 

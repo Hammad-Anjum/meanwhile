@@ -46,6 +46,7 @@ final class NotchController {
     let model = NotchModel()
     private var notch: DynamicNotch<NotchExpandedView, NotchCompactLeading, NotchCompactTrailing>?
     private var collapseTask: Task<Void, Never>?
+    private var transitionTask: Task<Void, Never>?
 
     init() {
         Hotkeys.shared.onAnswer = { [weak self] index in self?.answer(index, via: "hotkey ⌃⌥\(index + 1)") }
@@ -54,26 +55,41 @@ final class NotchController {
     /// Shows a fresh question, expanded. Called on `UserPromptSubmit` and from the menu.
     func ask() {
         collapseTask?.cancel()
+        transitionTask?.cancel()
         model.phase = .asking
         model.focusReport = ""
         model.turnStarted = Date()
+        guard let screen = Self.screen else { return }
         Hotkeys.shared.enable()
-        Task {
-            await notchView().expand(on: Self.screen)
-            makeClickThroughFocusSafe()
+        let notch = notchView()
+        transitionTask = Task { [weak self] in
+            await notch.expand(on: screen)
+            guard !Task.isCancelled else { return }
+            self?.makeClickThroughFocusSafe()
         }
     }
 
     /// Shrinks to the compact state (timer and count). Called after feedback.
     func compact() {
         collapseTask?.cancel()
-        Task { await notchView().compact(on: Self.screen) }
+        transitionTask?.cancel()
+        guard let screen = Self.screen else { return }
+        let notch = notchView()
+        transitionTask = Task { await notch.compact(on: screen) }
     }
 
     func hide() {
         collapseTask?.cancel()
+        transitionTask?.cancel()
         Hotkeys.shared.disable()
-        Task { await notch?.hide() }
+        guard let notch else { return }
+        transitionTask = Task { await notch.hide() }
+    }
+
+    func shutdown() {
+        collapseTask?.cancel()
+        transitionTask?.cancel()
+        Hotkeys.shared.disable()
     }
 
     func answer(_ choice: Int, via source: String) {
@@ -97,7 +113,8 @@ final class NotchController {
 
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
-            await notchView().compact(on: Self.screen)
+            guard let screen = Self.screen else { return }
+            await notchView().compact(on: screen)
         }
     }
 
@@ -123,8 +140,8 @@ final class NotchController {
     }
 
     /// The built-in display if there is one (it has the notch), else the main screen.
-    private static var screen: NSScreen {
-        NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0]
+    private static var screen: NSScreen? {
+        NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens.first
     }
 }
 

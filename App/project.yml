@@ -26,6 +26,8 @@ targets:
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
         CFBundleDisplayName: Meanwhile
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.meanwhile.app
@@ -36,4 +38,7 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
-        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        # Xcode does not add the runtime option to this target's ad-hoc Debug
+        # signature by itself, so make the intended protection explicit.
+        OTHER_CODE_SIGN_FLAGS: "--options=runtime"

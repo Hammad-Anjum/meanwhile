@@ -11,17 +11,23 @@ struct DebugEvent: Identifiable {
     let event: String
     let summary: String
     let prettyJSON: String
+    let retainedBytes: Int
 }
 
 /// Task 0.2 debug log: receives raw hook events, keeps them for the Event Log window,
 /// and appends them to the debug recording used for fixtures.
 @MainActor @Observable
 final class EventLog {
+    private static let maximumVisibleEvents = 2_000
+    private static let maximumVisibleBytes = 32 * 1024 * 1024
+    private static let maximumRecordingBytes: UInt64 = 32 * 1024 * 1024
+
     private(set) var events: [DebugEvent] = []
     private(set) var serverError: String?
     /// Called with each event's hook name (e.g. `UserPromptSubmit`). Drives the notch spike.
     @ObservationIgnored var onAgentEvent: ((String) -> Void)?
     @ObservationIgnored private var server: EventServer?
+    @ObservationIgnored private var retainedEventBytes = 0
 
     init() {
         let server = EventServer { [weak self] line in
@@ -36,7 +42,18 @@ final class EventLog {
         for line in Spool.drain() { ingest(line) }
     }
 
-    func clear() { events.removeAll() }
+    /// Stop accepting hook connections and remove the socket before the app exits.
+    /// `EventServer.start()` can recover from a stale socket, but an orderly shutdown
+    /// avoids leaving one behind in the common case.
+    func stop() {
+        server?.stop()
+        server = nil
+    }
+
+    func clear() {
+        events.removeAll()
+        retainedEventBytes = 0
+    }
 
     private func ingest(_ line: Data) {
         record(line)
@@ -46,13 +63,18 @@ final class EventLog {
         let payload = object["payload"] as? [String: Any] ?? [:]
         let event = payload["hook_event_name"] as? String ?? object["event"] as? String ?? "?"
         onAgentEvent?(event)
+        let summary = Self.summary(of: payload)
+        let retainedBytes = pretty.utf8.count + summary.utf8.count
         events.append(DebugEvent(
             receivedAt: Date(),
             agent: object["agent"] as? String ?? "?",
             event: event,
-            summary: Self.summary(of: payload),
-            prettyJSON: pretty
+            summary: summary,
+            prettyJSON: pretty,
+            retainedBytes: retainedBytes
         ))
+        retainedEventBytes += retainedBytes
+        trimVisibleEvents()
     }
 
     /// A one-line hint per event: the tool and its main argument, or the prompt.
@@ -64,20 +86,69 @@ final class EventLog {
                 .lazy.compactMap { input[$0] as? String }.first ?? ""
             return detail.isEmpty ? tool : "\(tool) · \(detail.prefix(80))"
         }
-        if let message = payload["last_assistant_message"] as? String { return message.prefix(80) + "…" }
+        if let message = payload["last_assistant_message"] as? String {
+            return message.count > 80 ? String(message.prefix(80)) + "…" : message
+        }
         if let type = payload["notification_type"] as? String { return type }
         return ""
     }
 
     private func record(_ line: Data) {
         let url = MeanwhilePaths.debugRecording
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let directory = url.deletingLastPathComponent()
+        let previous = directory.appendingPathComponent("events.previous.ndjson")
+        var framedLine = line
+        if framedLine.last != 0x0A { framedLine.append(0x0A) }
+        guard framedLine.count <= Self.maximumRecordingBytes else { return }
+
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+
+        let previousBytes = ((try? FileManager.default.attributesOfItem(atPath: previous.path)[.size]) as? NSNumber)?.uint64Value ?? 0
+        if previousBytes > Self.maximumRecordingBytes {
+            do { try FileManager.default.removeItem(at: previous) } catch { return }
+        }
+
+        var existingBytes = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?.uint64Value ?? 0
+        if existingBytes > Self.maximumRecordingBytes {
+            // A recording created by an older build may already be over the new
+            // bound. It is debug-only data, so discard it instead of retaining an
+            // indefinitely large file during the first rotation.
+            do { try FileManager.default.removeItem(at: url) } catch { return }
+            existingBytes = 0
+        }
+        if existingBytes + UInt64(framedLine.count) > Self.maximumRecordingBytes {
+            try? FileManager.default.removeItem(at: previous)
+            do {
+                try FileManager.default.moveItem(at: url, to: previous)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: previous.path)
+            } catch CocoaError.fileNoSuchFile {
+                // There was no current recording to rotate.
+            } catch {
+                return // Never grow an existing recording past the configured bound.
+            }
+        }
+
         if !FileManager.default.fileExists(atPath: url.path) {
             FileManager.default.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600])
         }
+        // The recording can contain prompts, paths, and tool arguments. Repair
+        // permissions too, rather than only protecting newly-created files.
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         guard let handle = try? FileHandle(forWritingTo: url) else { return }
         defer { try? handle.close() }
         handle.seekToEndOfFile()
-        handle.write(line + Data([0x0A]))
+        handle.write(framedLine)
+    }
+
+    private func trimVisibleEvents() {
+        var removeCount = 0
+        while removeCount < events.count,
+              events.count - removeCount > Self.maximumVisibleEvents
+                || retainedEventBytes > Self.maximumVisibleBytes {
+            retainedEventBytes -= events[removeCount].retainedBytes
+            removeCount += 1
+        }
+        if removeCount > 0 { events.removeFirst(removeCount) }
     }
 }

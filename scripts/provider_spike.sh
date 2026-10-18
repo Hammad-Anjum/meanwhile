@@ -11,6 +11,19 @@ which_provider=${1:-both}
 runs=${2:-1}
 repo=${0:A:h:h}
 
+if (( $# > 2 )); then
+  print -u2 "usage: ${0:t} [claude|codex|both] [positive-runs]"
+  exit 2
+fi
+case $which_provider in
+  claude|codex|both) ;;
+  *) print -u2 "usage: ${0:t} [claude|codex|both] [positive-runs]"; exit 2 ;;
+esac
+if [[ $runs != <-> || $runs -lt 1 ]]; then
+  print -u2 "runs must be a positive integer"
+  exit 2
+fi
+
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export MEANWHILE_INTERNAL=1
@@ -39,9 +52,10 @@ cat > "$work/schema.json" <<'EOF'
 EOF
 
 run_claude() {
+  rm -f "$work/out.json" "$work/err.txt"
   (cd "$work" && claude -p "$prompt" \
     --output-format json --json-schema "$(cat schema.json)" \
-    --tools "" --no-session-persistence --model haiku) < /dev/null > "$work/out.json" 2> "$work/err.txt"
+    --tools "" --no-session-persistence --model haiku) < /dev/null > "$work/out.json" 2> "$work/err.txt" || return
   # The structured answer is in .structured_output; fall back to .result.
   python3 -c '
 import json,sys
@@ -52,9 +66,11 @@ print("  cost_usd:", d.get("total_cost_usd"), " api_ms:", d.get("duration_api_ms
 }
 
 run_codex() {
+  rm -f "$work/last.txt" "$work/err.txt"
   (cd "$work" && codex exec --skip-git-repo-check --ephemeral --sandbox read-only \
-    --output-schema schema.json -o last.txt "$prompt") < /dev/null > /dev/null 2> "$work/err.txt"
-  cat "$work/last.txt"; echo
+    --output-schema schema.json -o last.txt "$prompt") < /dev/null > /dev/null 2> "$work/err.txt" || return
+  cat "$work/last.txt"
+  echo
 }
 
 time_it() {

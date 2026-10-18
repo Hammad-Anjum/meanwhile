@@ -55,8 +55,110 @@ private func shortSocketPath() -> String {
     #expect(received.all.first?.count == line.count - 1) // minus the newline
 }
 
+@Test func separateConnectionsAreDeliveredInAcceptanceOrder() async throws {
+    let path = shortSocketPath()
+    let received = Received()
+    let server = EventServer(path: path) { received.add($0) }
+    try server.start()
+    defer { server.stop() }
+
+    for index in 0..<100 {
+        #expect(UnixSocket.send(Data("event-\(index)\n".utf8), to: path))
+    }
+
+    await waitFor { received.all.count == 100 }
+    #expect(received.all.map { String(decoding: $0, as: UTF8.self) }
+        == (0..<100).map { "event-\($0)" })
+}
+
 @Test func sendFailsWhenNothingListens() {
     #expect(!UnixSocket.send(Data("hi\n".utf8), to: shortSocketPath()))
+}
+
+@Test func startingTwiceDoesNotOrphanTheOriginalListener() async throws {
+    let path = shortSocketPath()
+    let received = Received()
+    let first = EventServer(path: path) { received.add($0) }
+    let second = EventServer(path: path) { _ in }
+    try first.start()
+    defer { first.stop(); second.stop() }
+
+    var rejectedSecondListener = false
+    do {
+        try second.start()
+    } catch EventServerError.pathOccupied {
+        rejectedSecondListener = true
+    }
+    #expect(rejectedSecondListener)
+    #expect(UnixSocket.send(Data("still-alive\n".utf8), to: path))
+    await waitFor { received.all.count == 1 }
+    #expect(received.all.first == Data("still-alive".utf8))
+}
+
+@Test func repeatedStartOnOneServerIsRejectedAndCanRestartAfterStop() throws {
+    let path = shortSocketPath()
+    let server = EventServer(path: path) { _ in }
+    try server.start()
+
+    var rejectedRepeatedStart = false
+    do {
+        try server.start()
+    } catch EventServerError.alreadyRunning {
+        rejectedRepeatedStart = true
+    }
+    #expect(rejectedRepeatedStart)
+
+    server.stop()
+    try server.start()
+    server.stop()
+}
+
+@Test func rapidStopRestartDoesNotReuseAnOldAcceptLoop() async throws {
+    let path = shortSocketPath()
+    let received = Received()
+    let server = EventServer(path: path) { received.add($0) }
+    defer { server.stop() }
+
+    for _ in 0..<50 {
+        try server.start()
+        server.stop()
+    }
+    try server.start()
+    #expect(UnixSocket.send(Data("final\n".utf8), to: path))
+    await waitFor { received.all.count == 1 }
+    #expect(received.all == [Data("final".utf8)])
+}
+
+@Test func oversizedLineIsDroppedWithoutStoppingTheServer() async throws {
+    let path = shortSocketPath()
+    let received = Received()
+    let server = EventServer(path: path, maximumLineBytes: 32) { received.add($0) }
+    try server.start()
+    defer { server.stop() }
+
+    let oversizedConnection = Data((String(repeating: "x", count: 100) + "\nnot-delivered\n").utf8)
+    #expect(UnixSocket.send(oversizedConnection, to: path))
+    #expect(UnixSocket.send(Data("valid\n".utf8), to: path))
+
+    await waitFor { received.all.contains(Data("valid".utf8)) }
+    #expect(received.all == [Data("valid".utf8)])
+}
+
+@Test func serverNeverDeletesARegularFileAtItsSocketPath() throws {
+    let path = shortSocketPath()
+    let contents = Data("keep me".utf8)
+    try contents.write(to: URL(fileURLWithPath: path), options: .atomic)
+    defer { try? FileManager.default.removeItem(atPath: path) }
+
+    let server = EventServer(path: path) { _ in }
+    var rejectedOccupiedPath = false
+    do {
+        try server.start()
+    } catch EventServerError.pathOccupied {
+        rejectedOccupiedPath = true
+    }
+    #expect(rejectedOccupiedPath)
+    #expect(try Data(contentsOf: URL(fileURLWithPath: path)) == contents)
 }
 
 @Test func nonJSONPayloadIsKeptAsRawText() throws {

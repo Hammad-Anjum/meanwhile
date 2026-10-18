@@ -9,7 +9,7 @@ final class Hotkeys {
 
     /// Called with the answer index (0–3).
     var onAnswer: ((Int) -> Void)?
-    private var refs: [EventHotKeyRef?] = []
+    private var refs: [EventHotKeyRef] = []
 
     private init() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
@@ -29,13 +29,18 @@ final class Hotkeys {
         for (index, key) in keys.enumerated() {
             var ref: EventHotKeyRef?
             let id = EventHotKeyID(signature: OSType(0x4D57_4851), id: UInt32(index)) // "MWHQ"
-            RegisterEventHotKey(UInt32(key), UInt32(controlKey | optionKey), id, GetApplicationEventTarget(), 0, &ref)
-            refs.append(ref)
+            let status = RegisterEventHotKey(
+                UInt32(key), UInt32(controlKey | optionKey), id,
+                GetApplicationEventTarget(), 0, &ref
+            )
+            if status == noErr, let ref {
+                refs.append(ref)
+            }
         }
     }
 
     func disable() {
-        for ref in refs { if let ref { UnregisterEventHotKey(ref) } }
+        for ref in refs { UnregisterEventHotKey(ref) }
         refs.removeAll()
     }
 }
