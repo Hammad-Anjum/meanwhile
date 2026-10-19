@@ -121,7 +121,7 @@ Progress (2026-10-19): all seven tasks built. First live test of 1.6: the notch 
 
 Second test: every answer saved through four permission prompts. Then trimmed: "needs you" fades after 5 s instead of 20 s, and the explanatory captions under the confidence buttons and in the recap are gone.
 
-Still open: a second look at 1.6, and a real run of `meanwhile setup` (1.7).
+1.6 done (signed off 2026-10-19 after the third live test). Still open: a real run of `meanwhile setup` (1.7).
 
 | # | Task | Size | Done when |
 |---|---|---|---|

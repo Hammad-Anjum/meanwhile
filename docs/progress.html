@@ -77,11 +77,11 @@
 <main>
 
 <h1>Meanwhile: progress</h1>
-<p class="sub">Last updated 2026-10-19 · Phase 1: all 7 tasks built; 1.6 and 1.7 wait on your check · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+<p class="sub">Last updated 2026-10-19 · Phase 1: 6 of 7 done; 1.7 waits on a real <code>meanwhile setup</code> run · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
 
 <div class="stats">
   <div class="stat"><b>7 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:100%"></i></div></div>
-  <div class="stat"><b>12 / 38</b><span>All v1 tasks done (2 more built, testing)</span><div class="bar"><i style="width:32%"></i></div></div>
+  <div class="stat"><b>13 / 38</b><span>All v1 tasks done (1.7 built, testing)</span><div class="bar"><i style="width:34%"></i></div></div>
   <div class="stat"><b>81 / 81</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
@@ -282,7 +282,7 @@ flowchart TB
   <tr><td>1.3</td><td>Session tracker state machine (idle, working, needs input, done). Codex waiting is inferred from an unanswered permission request after 8 s.</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>1.4</td><td>Pack format, 3 generic decks (LLM fundamentals, system design, prompting and agents) you can turn off, and stack decks that follow the repo (Swift/macOS, TypeScript/React, Python). 180 cards.</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>1.5</td><td>Scheduler v1: due cards first, then new cards spread across decks and topics, 3 per wait; missed → tomorrow, then 2, 4, 7… days. Progress in <code>reviews.sqlite</code>.</td><td>M</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>1.6</td><td>Notch UI from the mockup. First live test (2026-10-19): looks good; fixed lost answers and auto-advance, so the notch is now static and saves every answer on click. Waiting for a second look.</td><td>L</td><td><span class="pill next">Testing</span></td></tr>
+  <tr><td>1.6</td><td>Notch UI from the mockup: compact (timer, questions left, needs you, done score), expanded (question, show me, feedback, confidence, recap). Static, saves on click, needs-you fades after 5 s. Signed off after three live tests.</td><td>L</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>1.7</td><td><code>meanwhile setup</code> / <code>uninstall</code> for Claude Code and Codex: plan, confirm, back up, merge hooks; provider; launch agent; test question; <code>--dry-run</code>. Install/uninstall round trip covered by tests; the real run on your Mac is yours to start.</td><td>M</td><td><span class="pill next">Testing</span></td></tr>
 </table>
 </div>
@@ -311,6 +311,7 @@ flowchart TB
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>1.6 done: signed off after the third live test.</td><td>Unchanged</td></tr>
   <tr><td>2026-10-19</td><td>Second live test: all answers saved through four permission prompts. Then trimmed: 'Needs you' fades after 5 s (was 20 s), and the captions above the confidence buttons and at the end of the recap are removed.</td><td>High-level label updated (no snapshot: wording only)</td></tr>
   <tr><td>2026-10-19</td><td>Live-test fixes: (1) 'Needs you' fades back after 20 s, because Claude Code sends no event when you approve a prompt. (2) Answers are saved the moment you click; a later confidence pick corrects the same answer. Before, a right answer interrupted by 'needs you' was lost, so the recap showed 0 of 1 after 3 answers. (3) The notch is static: nothing moves on by a timer; Next or ⌃⌥↩ does. (4) 'Needs you' keeps what was on screen.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>1.7 built: <code>meanwhile setup</code> (with <code>--dry-run</code>, <code>--yes</code>, <code>--agents</code>, <code>--no-start</code>) and <code>meanwhile uninstall</code>. Dry run checked against the real <code>~/.claude/settings.json</code> without writing.</td><td>Both updated; previous snapshot saved</td></tr>
