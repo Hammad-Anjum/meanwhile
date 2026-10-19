@@ -110,18 +110,20 @@ These find the expensive surprises first.
 | 0.6 | **Recursion guard:** Meanwhile's own `claude -p` / `codex exec` calls must not fire Meanwhile's hooks (env var `MEANWHILE_INTERNAL=1`, and the hook ignores events that carry it) | S | Generating a question produces no new events |
 | 0.7 | **Terms check:** read Anthropic's and OpenAI's terms on running their CLIs on a user's plan from a third-party app | S | A written yes/no in `docs/README.md`. If no, API keys become the default. |
 
-### Phase 1: Vertical slice, Claude Code with generic decks
+### Phase 1: Vertical slice, Claude Code and Codex with generic decks
+
+Scope changed 2026-10-19: Codex moved here from Phase 4 because it is the default provider; starter cards ship without a hand review.
 
 | # | Task | Size | Done when |
 |---|---|---|---|
-| 1.1 | Shared event schema plus the Claude Code adapter, tested on the 0.3 fixtures | M | Fixture tests pass |
+| 1.1 | Shared event schema plus the Claude Code and Codex adapters, tested on the 0.3 fixtures | M | Fixture tests pass |
 | 1.2 | Event store (GRDB) with 30-day retention | S | Events persist across app restarts |
 | 1.3 | Session tracker state machine (idle, working, needs input, done) | M | Unit tests for every transition |
-| 1.4 | Pack format (JSON schema) and 3 starter packs: LLM fundamentals, system design, prompting, about 30 cards each, reviewed by hand | M | Packs load; each card passes schema checks |
+| 1.4 | Pack format (JSON schema); 3 generic starter packs that can each be turned on or off (LLM fundamentals, system design, prompting and agents, about 30 cards each); a **stack deck** that follows the repo being worked on: detect the stack from its files (`Package.swift`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`) and use drafted packs for common stacks (Swift/macOS, TypeScript/React, Python). Phase 2 generates packs for other stacks with the provider layer | M | Packs load; each card passes schema checks; this repo gets the Swift/macOS deck |
 | 1.5 | Scheduler v1: pick from enabled decks and topics, interleave, limit per wait, simple spacing (missed → tomorrow; then 2, 4, 7… days by confidence) | M | Unit tests |
 | 1.6 | Notch UI: compact (timer and count), expanded (multiple choice, true/false), feedback with confidence buttons, needs-input, done | L | Matches the mockup; works with real events |
-| 1.7 | `meanwhile setup` and `meanwhile uninstall` for Claude Code: detect, show the change, back up, merge hooks; pick the provider; install a launch agent so `meanwhile run` starts at login; show a test question | M | Setup then uninstall leaves `settings.json` exactly as before; a fresh setup reaches a first question |
-| **Exit** | A real Claude Code turn shows a generic question in the notch, hides when the agent needs you, and shows a score on `Stop` | | |
+| 1.7 | `meanwhile setup` and `meanwhile uninstall` for Claude Code and Codex (including the `/hooks` trust step): detect, show the change, back up, merge hooks; pick the provider; install a launch agent so `meanwhile run` starts at login; show a test question | M | Setup then uninstall leaves `settings.json` exactly as before; a fresh setup reaches a first question |
+| **Exit** | A real Claude Code or Codex turn shows a generic question in the notch, hides when the agent needs you, and shows a score on `Stop` | | |
 
 ### Phase 2: Codebase questions
 
@@ -149,7 +151,7 @@ These find the expensive surprises first.
 
 | # | Task | Size | Done when |
 |---|---|---|---|
-| 4.1 | Codex adapter and installer, including the `/hooks` trust step and confirmation | M | Phase 1 and 2 exits pass on Codex |
+| 4.1 | ~~Codex adapter and installer~~ moved to Phase 1 (1.1, 1.7). Remaining: check the Phase 2 exit on Codex | S | Phase 2 exit passes on Codex |
 | 4.2 | Install Cursor; record fixtures; Cursor adapter and installer | M | Phase 1 and 2 exits pass on Cursor |
 | 4.3 | Transcript tailer for web results on Codex and Cursor, with versioned parsers that fail quietly | M | Research questions appear on both, or the deck quietly shows less |
 | 4.4 | Needs-input fallback for Cursor (no events for N seconds) | S | Questions hide while Cursor waits on you |
