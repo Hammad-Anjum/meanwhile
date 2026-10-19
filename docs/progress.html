@@ -82,7 +82,7 @@
 <div class="stats">
   <div class="stat"><b>7 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>26 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:63%"></i></div></div>
-  <div class="stat"><b>155 / 155</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="stat"><b>160 / 160</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
 
@@ -469,6 +469,7 @@ flowchart LR
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Security review: hook paths outside the repo and symlinks are never read or indexed; quoted secrets and auth headers are redacted, also in model output and the repo card; provider calls get a minimal environment (keeping USER for the Claude login), the prompt on stdin, Codex's shell tool off, capped output, and a timeout that kills the whole process group; quotes must match the named source token for token; answering Never purges what was learned from that repo. Also: the confidence buttons now read Knew it · Fairly sure · Guessed (⌃⌥1 = Knew it).</td><td>Unchanged</td></tr>
   <tr><td>2026-10-19</td><td>2.11 done: <code>SymbolIndexer</code> extracts definitions and references per language (patterns, not tree-sitter, for v1), links files by shared names weighted like Aider (types 2, descriptive names 1, short names 0.5, ÷√files defining them; links under 1 dropped), ranks files with PageRank for the Centrality signal, and adds a 'Code map near these files' section to evidence packs. Weighting cut the map near Worker.swift from 24 loosely related files to 12 mostly right ones. Phase 2's tasks are all built.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>2.10 done: predictions as the first question of a wait in a turned-on repo ('Which file will the agent change first?' from the prompt and the file map, else 'Will the tests pass on the first run?'), locked in and answered by the agent's first edit or test run; one-off, never reviewed. 'Report wrong question' retires a codebase question or hides a deck card for good.</td><td>Labels updated</td></tr>
   <tr><td>2026-10-19</td><td>2.8 done: <code>QuestionSelector</code> picks from deck cards and pooled codebase questions with hard rules (no repeats, skipped twice → 7 days, 30-minute gap, no same deck or file twice in a row, at least one codebase question when the agent edited code) and the weighted score; due reviews outrank new deck cards, fresh codebase questions lead. The notch shows the reason line; every display is logged with outcome, latency and score terms. Also: the hook's socket send now allows up to 4 s for large events.</td><td>Both updated; previous snapshot saved</td></tr>

@@ -33,9 +33,12 @@ enum CLICall {
         let inherited = ProcessInfo.processInfo.environment
         // The worker is launched from the user's terminal and may inherit cloud credentials,
         // dynamic-loader injection, and repo-specific variables. Provider CLIs need only their
-        // login/config locations and ordinary process locale.
-        let allowed = ["HOME", "TMPDIR", "PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM",
-                       "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR"]
+        // login/config locations and ordinary process locale. USER is how the Claude CLI finds
+        // its keychain login (without it: "Not logged in"); the API keys are each provider's own
+        // key, passed to that provider's unmodified binary and never read here.
+        let allowed = ["HOME", "USER", "LOGNAME", "TMPDIR", "PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM",
+                       "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR",
+                       "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
         var environment = Dictionary(uniqueKeysWithValues: allowed.compactMap { key in
             inherited[key].map { (key, $0) }
         })

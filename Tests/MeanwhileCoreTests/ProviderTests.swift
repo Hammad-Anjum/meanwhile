@@ -25,6 +25,7 @@ private var schema: [String: Any] { ["type": "object"] }
       case "$1" in -o) out="$2"; shift;; --output-schema) schema="$2"; shift;; --disable) [ "$2" = "shell_tool" ] && shell_disabled=1; shift;; esac; shift
     done
     [ "$MEANWHILE_INTERNAL" = "1" ] || { echo "not internal" >&2; exit 3; }
+    [ -n "$USER" ] || { echo "no USER: the Claude CLI cannot find its login" >&2; exit 8; }
     [ -z "$(ls -A . | grep -v schema.json)" ] || { echo "cwd not empty" >&2; exit 4; }
     [ -s "$schema" ] || { echo "no schema" >&2; exit 5; }
     [ "$shell_disabled" = "1" ] || { echo "shell tool enabled" >&2; exit 7; }

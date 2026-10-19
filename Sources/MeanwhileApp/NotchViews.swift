@@ -186,7 +186,7 @@ struct QuestionView: View {
                 }
                 if answer.correct, state.question.prediction == nil {
                     HStack(spacing: 6) {
-                        ForEach(Array(Confidence.allCases.enumerated()), id: \.offset) { index, level in
+                        ForEach(Array(NotchModel.confidenceOrder.enumerated()), id: \.offset) { index, level in
                             ConfidenceButton(index: index, level: level, chosen: state.confidence) {
                                 controller?.choose(level)
                             }

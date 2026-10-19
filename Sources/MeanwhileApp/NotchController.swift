@@ -97,6 +97,9 @@ final class NotchModel: ObservableObject {
         case optIn(name: String, root: String)
     }
 
+    /// The confidence buttons, in button and hotkey order: most sure first.
+    static let confidenceOrder: [Confidence] = [.knewIt, .fairlySure, .guessed]
+
     /// The three answers to the opt-in card, in button and hotkey order.
     enum OptInChoice: Int, CaseIterable {
         case yes, notNow, never
@@ -338,7 +341,7 @@ final class NotchController {
         if case .optIn = model.content {
             if let choice = NotchModel.OptInChoice(rawValue: index) { optIn(choice) }
         } else if model.isAwaitingConfidence {
-            if Confidence.allCases.indices.contains(index) { choose(Confidence.allCases[index]) }
+            if NotchModel.confidenceOrder.indices.contains(index) { choose(NotchModel.confidenceOrder[index]) }
         } else if case .question(let state) = model.content, state.answer == nil,
                   state.question.options.indices.contains(index) {
             answer(index)
