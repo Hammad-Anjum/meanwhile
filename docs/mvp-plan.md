@@ -150,6 +150,11 @@ Progress:
   - Synthetic 50,000-file repo: cold index 1.4 s, unchanged 0.24 s, one edit 0.9 s, 13 MB of index.
   - One change from the plan: no FSEvents. The app can't watch protected folders either; the worker's git checks on each turn start, edit and turn end cover it.
   - Branches share a single current snapshot per repo; blobs already seen are never reprocessed.
+- 2.4 done (2026-10-19).
+  - **Docs:** split at headings into FTS5 (`detail=column`), with file paths and identifiers each chunk mentions. LFS pointers and files with lines over 4 KB are skipped; 50,000 chunks per repo at most.
+  - **Git history:** the last 180 days or 5,000 commits once, then only new commits. Per file: commit count, how many were yours ("not yours" share), and last change. Commit subjects are kept as "why" evidence.
+  - **Speed:** on the 50,000-file repo, 2,500 docs chunk in 0.43 s, history takes 0.44 s, and a search answers in 4 ms.
+  - **Fixed on the way:** `Shell.run` could deadlock when many ran at once (pipe reads used the shared thread pool), and full-text search never matched (words became arrays of characters).
 
 | # | Task | Size | Done when |
 |---|---|---|---|

@@ -250,6 +250,44 @@ public final class LibraryStore: Sendable {
                 t.primaryKey(["repoId", "path"])
             }
         }
+        // Task 2.4: doc chunks with full-text search, and per-file git history.
+        migrator.registerMigration("v5-docs-history") { db in
+            try db.alter(table: "blob") { t in t.add(column: "chunked", .boolean).notNull().defaults(to: false) }
+            try db.alter(table: "repo") { t in t.add(column: "historyHead", .text) }
+            try db.create(table: "docChunk") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("sha", .text).notNull().indexed()
+                t.column("ordinal", .integer).notNull()
+                t.column("trail", .text).notNull()
+                t.column("body", .text).notNull()
+            }
+            // External-content FTS5 over docChunk; detail=column keeps it 2–5× smaller.
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE docChunkFts USING fts5(
+                  trail, body, content='docChunk', content_rowid='id', detail=column)
+                """)
+            try db.create(table: "docMention") { t in
+                t.column("chunkId", .integer).notNull().references("docChunk", onDelete: .cascade)
+                t.column("token", .text).notNull().indexed()
+                t.primaryKey(["chunkId", "token"])
+            }
+            try db.create(table: "fileHistory") { t in
+                t.column("repoId", .integer).notNull().references("repo", onDelete: .cascade)
+                t.column("path", .text).notNull()
+                t.column("commits", .integer).notNull()
+                t.column("mine", .integer).notNull()
+                t.column("lastCommitAt", .datetime)
+                t.primaryKey(["repoId", "path"])
+            }
+            try db.create(table: "commitInfo") { t in
+                t.column("repoId", .integer).notNull().references("repo", onDelete: .cascade)
+                t.column("sha", .text).notNull()
+                t.column("email", .text).notNull()
+                t.column("committedAt", .datetime).notNull()
+                t.column("subject", .text).notNull()
+                t.primaryKey(["repoId", "sha"])
+            }
+        }
         return migrator
     }
 }

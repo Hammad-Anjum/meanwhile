@@ -36,11 +36,14 @@ public enum Shell {
         process.standardInput = stdin ?? FileHandle.nullDevice
 
         // Read both pipes while the process runs, so a large output can't fill a pipe and stall it.
+        // Dedicated threads, not GCD: these block until the process exits, and with many runs
+        // at once (the worker, parallel tests) blocked GCD workers exhausted its thread pool
+        // and the reads that would unblock them never got a thread (found 2026-10-19).
         let collected = Collected()
         let group = DispatchGroup()
         for (pipe, isOut) in [(out, true), (err, false)] {
             group.enter()
-            DispatchQueue.global().async {
+            Thread.detachNewThread {
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 collected.set(data, isOut: isOut)
                 group.leave()
@@ -50,7 +53,7 @@ public enum Shell {
         try process.run()
         if let stdin, let input {
             // Write on another thread: a large input can fill the pipe before the reader starts.
-            DispatchQueue.global().async {
+            Thread.detachNewThread {
                 stdin.fileHandleForWriting.write(input)
                 try? stdin.fileHandleForWriting.close()
             }

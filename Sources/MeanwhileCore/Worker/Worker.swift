@@ -60,7 +60,11 @@ public struct Worker: Sendable {
         let root = StackDetector.repoRoot(for: request.directory)
         let repo = try library.noteRepo(root: root)
         // Repos turned on get the full index; others only what the opt-in card needs.
-        if repo.state == .on, (try? RepoIndexer(library: library).index(root: root)) != nil {
+        if repo.state == .on, let indexed = try? RepoIndexer(library: library).index(root: root) {
+            if !indexed.skippedUnchanged {
+                try DocIndexer(library: library).process(root: root, newBlobs: indexed.newBlobs)
+                try HistoryIndexer(library: library).update(root: root)
+            }
             try library.recordStacks(StackDetector.stacks(inRepo: root), root: root)
             try library.writer.write { db in
                 try db.execute(sql: "UPDATE repo SET accessError = NULL WHERE root = ?", arguments: [root])

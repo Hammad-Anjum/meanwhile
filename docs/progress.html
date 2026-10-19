@@ -77,12 +77,12 @@
 <main>
 
 <h1>Meanwhile: progress</h1>
-<p class="sub">Last updated 2026-10-19 · Phase 2 in progress (2.0–2.3 done) · <a href="phase2-plan.md">plan</a> · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+<p class="sub">Last updated 2026-10-19 · Phase 2 in progress (2.0–2.4 done) · <a href="phase2-plan.md">plan</a> · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
 
 <div class="stats">
   <div class="stat"><b>7 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:100%"></i></div></div>
-  <div class="stat"><b>18 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:44%"></i></div></div>
-  <div class="stat"><b>106 / 106</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="stat"><b>19 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:46%"></i></div></div>
+  <div class="stat"><b>114 / 114</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
 
@@ -142,8 +142,10 @@ flowchart LR
   subgraph Worker[meanwhile work · started by the hook · terminal's file access]
     WK[Worker · meanwhile work<br/>request queue + lock · git ls-files]
     IDX[(Repo index<br/>files by blob hash · exclusions · git change detection)]
-    IDX2[(docs FTS · git history · symbols)]:::planned
-    IDX -.-> IDX2
+    IDX2[(Docs FTS5 · mentions<br/>git history · churn · not-yours)]
+    IDX --> IDX2
+    SYM[(Symbols · repo map)]:::planned
+    IDX2 -.-> SYM
     GEN[Evidence pack → generator → validator]:::planned
     LIB[(library.sqlite<br/>repos: state · stacks · files · work requests)]
     WK --> LIB
@@ -186,6 +188,7 @@ flowchart TB
     LIBS["Store/ · LibraryStore<br/>repo (state · stacks · askedAt) · workRequest · generationCall"]
     PRV["Providers/ · QuestionModel<br/>CodexCLIModel · ClaudeCLIModel · GenerationBudget"]
     RIX["Index/ · RepoIndexer · FileKind<br/>ls-files -s · status · hash-object · cat-file"]
+    DIX["Index/ · DocIndexer · HistoryIndexer<br/>heading chunks · FTS5 · mentions · git log"]
     STO["Store/ · EventStore<br/>ingest() · events() · prune()"]
     TRK["Sessions/ · SessionTracker<br/>apply(event) · tick(now) → SessionTransition"]
     PK["Packs/ · Pack · Card · PackLibrary<br/>bundled() · packs(forDirectory:)"]
@@ -225,6 +228,7 @@ flowchart TB
     T12[ProviderTests]
     T13[OptInTests]
     T14[IndexTests]
+    T15[DocHistoryTests]
     FX[(Fixtures/*.ndjson)]
   end
 
@@ -263,6 +267,8 @@ flowchart TB
   LIBS -. tested by .-> T13
   WRK --> RIX --> LIBS
   RIX -. tested by .-> T14
+  WRK --> DIX --> LIBS
+  DIX -. tested by .-> T15
   DEL --> QZ
   NC -- nextQuestion · onRecord · onRevise · onSkip --> QZ
   SCHD -. tested by .-> T9
@@ -336,7 +342,8 @@ flowchart LR
 flowchart LR
   H[meanwhile-hook] -- spawns detached --> WK[Worker · meanwhile work<br/>terminal's file access · queue + lock]
   WK -- git ls-files · status · hash-object --> IDX[(Index by blob hash<br/>files · kinds · skip reasons)]
-  IDX -.-> IDX2[(docs FTS · churn · authors · symbols)]:::planned
+  IDX --> IDX2[(Docs FTS5 · mentions<br/>churn · not-yours · commit subjects)]
+  IDX2 -.-> SYM[(Symbols)]:::planned
   EV[(Event store<br/>this turn's edits and reads)] -.-> EP
   IDX2 -.-> EP[Evidence pack<br/>6k tokens · redacted · context score]:::planned
   EP -. score ≥ 4 .-> GEN[Generators<br/>live diff · post-turn why · primer]:::planned
@@ -391,8 +398,8 @@ flowchart LR
   <tr><td>2.1</td><td>Provider layer: <code>codex exec</code> and <code>claude -p</code>, budget 1 live + 1 post per turn, 20 a day. Real calls: 6.1, 9.1, 12.3 s</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>2.2</td><td>Repo opt-in in the notch, once per repo (Yes / Not now / Never); stacks recorded by the worker</td><td>S</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>2.3</td><td>Index core: files by blob hash, exclusions, change detection, caps. 50,000 files: cold 1.4 s, unchanged 0.24 s, one edit 0.9 s</td><td>L</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>2.4</td><td>Docs in FTS5; git history, churn, authorship</td><td>M</td><td><span class="pill next">Next</span></td></tr>
-  <tr><td>2.5</td><td>Evidence packs (6k tokens), redaction, hook-only fallback</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>2.4</td><td>Docs in FTS5 with mentions; git history, churn, authorship. 2,500 docs in 0.43 s; search in 4 ms</td><td>M</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>2.5</td><td>Evidence packs (6k tokens), redaction, hook-only fallback</td><td>M</td><td><span class="pill next">Next</span></td></tr>
   <tr><td>2.6</td><td>Generators into a question pool</td><td>L</td><td><span class="pill todo">To do</span></td></tr>
   <tr><td>2.7</td><td>Validator and staleness</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
   <tr><td>2.8</td><td>Selection v2 with the 'why this' line and the shown log</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
@@ -426,6 +433,7 @@ flowchart LR
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>2.4 done: <code>DocIndexer</code> splits docs at headings into FTS5 (<code>detail=column</code>) with path and identifier mentions; <code>HistoryIndexer</code> reads 180 days / 5,000 commits once, then only new commits, for churn and the 'not yours' share. Fixed on the way: a deadlock in <code>Shell.run</code> (pipe reads blocked the shared thread pool) and a search bug that never matched (words were split into character arrays).</td><td>Labels updated</td></tr>
   <tr><td>2026-10-19</td><td>2.3 done: <code>RepoIndexer</code> keeps a file map by git blob hash for repos turned on. Skips the run when HEAD and git status are unchanged; hashes only working-tree changes; applies only differences; GitHub-style exclusions. Synthetic 50,000-file repo: cold 1.4 s (31.8 s before fixing a quadratic loop), unchanged 0.24 s, one edit 0.9 s, 13 MB.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>2.2 done: the notch offers 'Turn on codebase questions for &lt;repo&gt;?' once per repo (Yes / Not now / Never; not for empty or unreadable repos; Not now returns after a day). Also fixed a Phase 1 bug: the app couldn't read repos under ~/Desktop, so stack decks were silently missing there; the worker now records stacks and the app uses them.</td><td>Labels updated</td></tr>
   <tr><td>2026-10-19</td><td>2.1 done: <code>QuestionModel</code> with <code>codex exec</code> (default) and <code>claude -p</code>, each in an empty folder with stdin closed and <code>MEANWHILE_INTERNAL=1</code>; <code>GenerationBudget</code> logs every call and allows 1 live + 1 post-turn call per turn and 20 a day. Three real codex calls: 6.1, 9.1, 12.3 s; the question pool hides that latency.</td><td>Labels updated</td></tr>
