@@ -39,12 +39,19 @@ Adapters turn each payload into:
   "turn": "string | null",
   "ts": "2026-10-16T14:02:11Z",
   "cwd": "/path/to/repo",
-  "kind": "session.start | turn.start | tool.read | tool.edit | tool.exec | tool.web | agent.thought | turn.end | needs.input | session.end",
+  "kind": "session.start | turn.start | tool.read | tool.edit | tool.exec | tool.web | tool.other | permission.request | needs.input | notification | turn.end | subagent.end | session.end",
   "data": { },
   "transcript": "path or null",
   "term": { "program": "iTerm.app", "tty": "/dev/ttys004" }
 }
 ```
+
+Implemented in `Sources/MeanwhileCore/Events` (task 1.1) as `AgentEvent`, with `ClaudeAdapter` and `CodexAdapter`. Notes from running them on real sessions:
+- `permission.request` is not `needs.input`. Claude Code sends `PermissionRequest` even when auto mode approves the call. Claude's `needs.input` comes from `Notification` with `notification_type` `permission_prompt` or `idle_prompt`. Codex has no `Notification` hook, so the session tracker has to infer waiting from timing.
+- Claude Code sends an `idle_prompt` notification after `Stop` once the session sits idle. That means "waiting for the next prompt", not "blocked mid-turn".
+- Shell commands that view files (`cat`, `head`, `tail`, `nl`, `sed -n`, also inside `bash -lc`) also produce `tool.read` events. Both agents read this way more often than through a Read tool.
+- `agent.thought` is not produced yet; it needs the transcript tailer (Phase 4).
+- Events from subagents carry `subagent` (the payload's `agent_id`).
 
 ## Event mapping
 
