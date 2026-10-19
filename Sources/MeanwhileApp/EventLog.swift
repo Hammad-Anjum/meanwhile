@@ -29,11 +29,13 @@ final class EventLog {
     /// spooled lines drained at launch: those turns are already over.
     @ObservationIgnored var onEvents: (([AgentEvent]) -> Void)?
     @ObservationIgnored private var server: EventServer?
+    @ObservationIgnored private let store: EventStore?
     @ObservationIgnored private var retainedEventBytes = 0
 
     /// Lines are saved to `store` on the server's background queue before the UI sees them.
     init(store: EventStore?, storeError: String? = nil) {
         self.storeError = storeError
+        self.store = store
         let server = EventServer { [weak self] line in
             let events = (try? store?.ingest(line)) ?? EventAdapter.events(fromLine: line)
             Task { @MainActor in
@@ -47,9 +49,16 @@ final class EventLog {
         } catch {
             serverError = "Could not listen on \(MeanwhilePaths.socket.path): \(error)"
         }
+        drainSpool(live: false)
+    }
+
+    /// Takes in lines the hook spooled. At launch they belong to turns that are over, so they
+    /// only go to the store and the log; while running they are recent and reach `onEvents` too.
+    func drainSpool(live: Bool = true) {
         for line in Spool.drain() {
-            _ = try? store?.ingest(line)
+            let events = (try? store?.ingest(line)) ?? EventAdapter.events(fromLine: line)
             ingest(line)
+            if live, !events.isEmpty { onEvents?(events) }
         }
     }
 

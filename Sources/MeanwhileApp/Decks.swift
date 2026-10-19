@@ -27,12 +27,8 @@ final class Decks {
         if disabled.contains(id) { disabled.remove(id) } else { disabled.insert(id) }
     }
 
-    /// A random card from the decks that apply to the repo at `cwd`. The scheduler (task 1.5)
-    /// replaces the random pick.
-    func randomQuestion(forDirectory cwd: String) -> SpikeQuestion? {
-        let packs = library.packs(forDirectory: cwd, disabled: disabled)
-        guard let pack = packs.filter({ !$0.cards.isEmpty }).randomElement(),
-              let card = pack.cards.randomElement() else { return nil }
-        return SpikeQuestion(card: card, deck: pack.title)
+    /// The enabled decks that apply to the repo at `cwd`.
+    func packs(forDirectory cwd: String) -> [Pack] {
+        library.packs(forDirectory: cwd, disabled: disabled)
     }
 }

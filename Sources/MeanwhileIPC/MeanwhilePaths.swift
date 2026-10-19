@@ -16,6 +16,9 @@ public enum MeanwhilePaths {
     /// SQLite store of received events (task 1.2).
     public static var eventStore: URL { supportDirectory.appendingPathComponent("meanwhile.sqlite") }
 
+    /// Card progress and the answer log (task 1.5). Never pruned.
+    public static var reviewStore: URL { supportDirectory.appendingPathComponent("reviews.sqlite") }
+
     /// Every event the app receives, as raw lines. Used to record test fixtures (task 0.3).
     public static var debugRecording: URL {
         supportDirectory.appendingPathComponent("debug/events.ndjson")

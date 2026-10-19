@@ -15,34 +15,61 @@ public enum UnixSocket {
         return address
     }
 
+    /// Pauses before each retry of a refused connection. On macOS a Unix socket whose
+    /// accept backlog is full refuses at once instead of waiting, so a burst of hook
+    /// events (parallel tool calls) would otherwise fall through to the spool.
+    private static let connectRetryDelays: [useconds_t] = [5_000, 20_000, 50_000]
+
     /// Sends `data` to the socket at `path`. Returns false if nothing is listening
     /// or the write fails; never blocks for more than about a second.
     public static func send(_ data: Data, to path: String) -> Bool {
+        let deadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
+        var fd = connected(to: path, deadline: deadline)
+        for delay in connectRetryDelays where fd.descriptor < 0 && fd.retryable {
+            usleep(delay)
+            fd = connected(to: path, deadline: deadline)
+        }
+        guard fd.descriptor >= 0 else { return false }
+        let descriptor = fd.descriptor
+        defer { close(descriptor) }
+        return writeAll(data, to: descriptor, deadline: deadline)
+    }
+
+    /// A connected non-blocking socket, or -1 and whether trying again could help.
+    private static func connected(to path: String, deadline: UInt64) -> (descriptor: Int32, retryable: Bool) {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return false }
-        defer { close(fd) }
+        guard fd >= 0 else { return (-1, false) }
 
         var on: Int32 = 1
         let flags = fcntl(fd, F_GETFL)
         guard setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size)) == 0,
               flags >= 0,
-              fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else { return false }
-
-        guard var address = address(path) else { return false }
+              fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0,
+              var address = address(path) else {
+            close(fd)
+            return (-1, false)
+        }
         let connectResult = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        let deadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
         if connectResult != 0 {
-            guard errno == EINPROGRESS, waitUntilWritable(fd, deadline: deadline) else { return false }
+            let code = errno
             var socketError: Int32 = 0
             var errorLength = socklen_t(MemoryLayout<Int32>.size)
-            guard getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &errorLength) == 0,
-                  socketError == 0 else { return false }
+            guard code == EINPROGRESS, waitUntilWritable(fd, deadline: deadline),
+                  getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &errorLength) == 0,
+                  socketError == 0 else {
+                close(fd)
+                // ENOENT (no socket file: the app isn't running) fails fast.
+                return (-1, code == ECONNREFUSED || code == EAGAIN)
+            }
         }
+        return (fd, false)
+    }
 
+    private static func writeAll(_ data: Data, to fd: Int32, deadline: UInt64) -> Bool {
         return data.withUnsafeBytes { buffer in
             guard let base = buffer.baseAddress else { return true }
             var sent = 0

@@ -120,21 +120,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let log: EventLog
     let notch = NotchController()
     let decks = Decks()
+    let quiz: Quiz
     private var eventLogWindow: NSWindow?
     private var pruneTimer: Timer?
     private var tickTimer: Timer?
     private var tracker = SessionTracker()
 
     override init() {
-        var error: String?
+        var errors: [String] = []
         do {
             store = try EventStore()
-        } catch let failure {
+        } catch {
             store = nil
-            error = "Could not open \(MeanwhilePaths.eventStore.path): \(failure)"
+            errors.append("Could not open \(MeanwhilePaths.eventStore.path): \(error)")
         }
-        log = EventLog(store: store, storeError: error)
+        var reviews: ReviewStore?
+        do {
+            reviews = try ReviewStore()
+        } catch {
+            errors.append("Could not open \(MeanwhilePaths.reviewStore.path): \(error)")
+        }
+        quiz = Quiz(decks: decks, reviews: reviews)
+        log = EventLog(store: store, storeError: errors.isEmpty ? nil : errors.joined(separator: " · "))
         super.init()
+        notch.onAnswer = { [quiz] question, choice in quiz.answered(question, choice: choice) }
+        notch.nextQuestion = { [quiz] in quiz.next() }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -150,9 +160,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.handle(events.compactMap { self.tracker.apply($0) })
         }
+        var ticks = 0
         tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
+                ticks += 1
+                // Hooks spool when the socket refuses them (a burst); pick those up while running.
+                if ticks % 5 == 0 { self.log.drainSpool() }
                 self.handle(self.tracker.tick(now: Date()))
             }
         }
@@ -175,11 +189,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             FileHandle.standardError.write(Data(line.utf8))
         }
         for transition in transitions where focus == nil || transition.session == focus {
-            switch transition.to {
-            case .working:
-                let cwd = tracker.sessions[transition.session]?.cwd ?? FileManager.default.currentDirectoryPath
-                notch.ask(decks.randomQuestion(forDirectory: cwd) ?? .sample)
-            case .needsInput, .done, .idle, .ended: notch.hide()
+            let state = tracker.sessions[transition.session]
+            switch (transition.from, transition.to) {
+            case (.needsInput, .working):
+                // Back from a pause in the same turn: the open question, or the next one.
+                if let question = quiz.current ?? quiz.next() { notch.ask(question) } else { notch.compact() }
+            case (_, .working):
+                quiz.startWait(session: transition.session, cwd: state?.cwd ?? FileManager.default.currentDirectoryPath)
+                if let question = quiz.next() {
+                    notch.ask(question, turnStarted: state?.turnStartedAt ?? Date())
+                }
+            case (_, .needsInput):
+                notch.hide()
+            case (_, .done), (_, .idle), (_, .ended):
+                quiz.endWait()
+                notch.hide()
             }
         }
     }
@@ -187,8 +211,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func askSoon() {
         Task {
             try? await Task.sleep(for: .seconds(3))
-            let cwd = tracker.focused?.cwd ?? FileManager.default.currentDirectoryPath
-            notch.ask(decks.randomQuestion(forDirectory: cwd) ?? .sample)
+            quiz.startWait(session: nil, cwd: tracker.focused?.cwd ?? FileManager.default.currentDirectoryPath)
+            notch.ask(quiz.next() ?? .sample, turnStarted: Date())
         }
     }
 

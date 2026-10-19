@@ -8,6 +8,8 @@ import SwiftUI
 
 /// What the notch asks: a deck card, or the spike's sample question.
 struct SpikeQuestion {
+    /// The deck card this came from; nil for the sample question.
+    var cardID: String?
     var deck = "Your codebase"
     let text: String
     let options: [String]
@@ -25,6 +27,7 @@ struct SpikeQuestion {
     init(card: Card, deck: String) {
         self.init(deck: deck, text: card.question, options: card.choices, correct: card.correctChoice,
                   explanation: card.explanation)
+        cardID = card.id
     }
 
     /// Written by `codex exec` in the 0.5 provider spike, from Sources/MeanwhileIPC/Spool.swift.
@@ -63,19 +66,24 @@ final class NotchController {
     private var notch: DynamicNotch<NotchExpandedView, NotchCompactLeading, NotchCompactTrailing>?
     private var collapseTask: Task<Void, Never>?
     private var transitionTask: Task<Void, Never>?
+    /// Called with the question and the chosen index when the user answers.
+    var onAnswer: ((SpikeQuestion, Int) -> Void)?
+    /// Asked for the next question once the user has read the feedback; nil shrinks the notch.
+    var nextQuestion: (() -> SpikeQuestion?)?
 
     init() {
         Hotkeys.shared.onAnswer = { [weak self] index in self?.answer(index, via: "hotkey ⌃⌥\(index + 1)") }
     }
 
-    /// Shows a fresh question, expanded. Called when a session starts working, and from the menu.
-    func ask(_ question: SpikeQuestion = .sample) {
+    /// Shows a question, expanded. Pass `turnStarted` when a new agent turn begins, so the
+    /// timer counts the whole wait across questions.
+    func ask(_ question: SpikeQuestion = .sample, turnStarted: Date? = nil) {
         collapseTask?.cancel()
         transitionTask?.cancel()
         model.question = question
         model.phase = .asking
         model.focusReport = ""
-        model.turnStarted = Date()
+        if let turnStarted { model.turnStarted = turnStarted }
         guard let screen = Self.screen else { return }
         Hotkeys.shared.enable()
         let notch = notchView()
@@ -115,6 +123,7 @@ final class NotchController {
         model.phase = .answered(choice: choice, via: source)
         Hotkeys.shared.disable()
         model.answeredCount += 1
+        onAnswer?(model.question, choice)
 
         // Check a moment later, after AppKit has finished handling the click.
         collapseTask = Task {
@@ -128,9 +137,13 @@ final class NotchController {
                 : "Focus moved (panel key: \(panelIsKey), Meanwhile active: \(NSApp.isActive))"
             print("[notch spike] answer \(choice + 1) via \(source): \(model.focusReport)")
 
-            // Long enough to read the explanation.
+            // Long enough to read the explanation, then the next question if the wait allows one.
             try? await Task.sleep(for: .seconds(6))
             guard !Task.isCancelled else { return }
+            if let next = nextQuestion?() {
+                ask(next)
+                return
+            }
             guard let screen = Self.screen else { return }
             await notchView().compact(on: screen)
         }
