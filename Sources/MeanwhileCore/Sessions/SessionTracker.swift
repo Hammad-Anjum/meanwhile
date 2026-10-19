@@ -44,6 +44,10 @@ public struct SessionTracker: Sendable {
         /// Codex has no needs-input event. A permission request with nothing after it for
         /// this long is taken to mean Codex is waiting on the user.
         public var codexPermissionWait: TimeInterval = 8
+        /// How long `needsInput` lasts without a follow-up event. Claude Code sends nothing when
+        /// the user approves a prompt, only when the approved tool finishes, which can take
+        /// minutes; so the attention state is a short signal, not a wait for the next event.
+        public var needsInputLinger: TimeInterval = 20
         /// How long `done` lasts before the session counts as idle.
         public var doneLinger: TimeInterval = 60
         /// A working session with no events this long is assumed dead and set idle.
@@ -132,6 +136,8 @@ public struct SessionTracker: Sendable {
                now.timeIntervalSince(since) >= timing.codexPermissionWait {
                 state.pendingPermissionSince = nil
                 state.phase = .needsInput
+            } else if state.phase == .needsInput, now.timeIntervalSince(state.phaseSince) >= timing.needsInputLinger {
+                state.phase = .working
             } else if state.phase == .done, now.timeIntervalSince(state.phaseSince) >= timing.doneLinger {
                 state.phase = .idle
             } else if state.phase == .working, now.timeIntervalSince(state.lastActivity) >= timing.staleWorking {

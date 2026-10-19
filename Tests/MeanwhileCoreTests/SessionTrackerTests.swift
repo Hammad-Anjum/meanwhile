@@ -41,6 +41,18 @@ private func phase(_ tracker: SessionTracker, _ session: String = "s") -> Sessio
     #expect(tracker.apply(event(toolCall, at: 20))?.to == .working)
 }
 
+/// Seen 2026-10-19: the user approved a prompt for a 90 s command. Claude Code sends nothing
+/// on approval, only PostToolUse when the command ends, so "needs you" must not wait for it.
+@Test func needsInputFadesBackToWorkingWithoutAFollowUpEvent() {
+    var tracker = SessionTracker()
+    tracker.apply(event(prompt))
+    tracker.apply(event(.needsInput(reason: "permission_prompt"), at: 6))
+    #expect(tracker.tick(now: t0.addingTimeInterval(6 + 19)).isEmpty)
+    #expect(tracker.tick(now: t0.addingTimeInterval(6 + 20)).map { [$0.from, $0.to] } == [[.needsInput, .working]])
+    // The command's PostToolUse finally arrives: already working, so no transition.
+    #expect(tracker.apply(event(toolCall, at: 96)) == nil)
+}
+
 @Test func turnEndIsDoneThenIdleAfterLinger() {
     var tracker = SessionTracker()
     tracker.apply(event(prompt))
