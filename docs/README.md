@@ -22,6 +22,10 @@ Status: **early build**. Phase 0 is done; Phase 1 is next. See [`progress.html`]
 | Display | Follows the display with the agent's terminal or editor; falls back to the built-in notch | 2026-10-17 |
 | Team features | After v1. Keep storage ready for a shared bank per repo | 2026-10-17 |
 | Release model | Undecided. Keep the code clean enough to open-source | 2026-10-17 |
+| Reading repos in Desktop, Documents, Downloads | The indexer runs as a helper started by `meanwhile-hook`, inheriting the terminal's access; hook-only evidence as fallback ([phase2-plan.md](phase2-plan.md)) | 2026-10-19 |
+| Turning a repo on | Ask once per repo in the notch | 2026-10-19 |
+| Daily generation budget | 20 calls a day, plus at most 1 live and 1 post-turn call per turn | 2026-10-19 |
+| Why a question was picked | One small grey line under the deck chip in the notch | 2026-10-19 |
 | Fallback if the notch takes focus | Both: floating pill with hover and click answers, plus global hotkeys | 2026-10-19 |
 | Shape | A command-line tool, not an app: one `meanwhile` program that runs the notch in the background (`meanwhile run`) and sets itself up (`meanwhile setup`). A full `.app` only if there are many paying customers | 2026-10-19 |
 | Install | A `curl … \| sh` script that downloads a ready-built program from a GitHub release and runs `meanwhile setup`. A Homebrew tap can come later from the same release files | 2026-10-19 |
@@ -37,6 +41,7 @@ Status: **early build**. Phase 0 is done; Phase 1 is next. See [`progress.html`]
 | [research.md](research.md) | Competitors, evidence that the problem is real, learning-science basis, sources |
 | [progress.html](progress.html) | Visual tracker: high- and low-level diagrams of the current structure, task status, change log |
 | [mvp-plan.md](mvp-plan.md) | v1 scope, tech stack, repo layout, flows, phased task list, where to start |
+| [phase2-plan.md](phase2-plan.md) | Phase 2 in detail: how the index scales with the repo, how questions are ranked, macOS folder access, revised tasks |
 
 ## Open questions
 

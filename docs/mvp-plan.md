@@ -121,7 +121,9 @@ Progress (2026-10-19): all seven tasks built. First live test of 1.6: the notch 
 
 Second test: every answer saved through four permission prompts. Then trimmed: "needs you" fades after 5 s instead of 20 s, and the explanatory captions under the confidence buttons and in the recap are gone.
 
-1.6 done (signed off 2026-10-19 after the third live test). Still open: a real run of `meanwhile setup` (1.7).
+1.6 done (signed off 2026-10-19 after the third live test).
+
+1.7 done for Claude Code (2026-10-19). The real `meanwhile setup` installed the hooks and the login item, and events arrive through the user-level hooks. It also found that macOS hides `~/Desktop` from the login item, so setup now installs `meanwhile` into `~/Library/Application Support/Meanwhile/bin`. Still open: a Codex turn after trusting its hooks with `/hooks`.
 
 | # | Task | Size | Done when |
 |---|---|---|---|
@@ -136,17 +138,22 @@ Second test: every answer saved through four permission prompts. Then trimmed: "
 
 ### Phase 2: Codebase questions
 
+Revised 2026-10-19; the full plan, the research behind it and the decisions are in [phase2-plan.md](phase2-plan.md).
+
 | # | Task | Size | Done when |
 |---|---|---|---|
-| 2.1 | Repo opt-in flow and empty-repo detection | S | New folder → prompt in the notch |
-| 2.2 | Repo index: doc chunks by heading (FTS5), file map, git log and blame, `.gitignore` / `.meanwhileignore` | L | Index of a large repo built in under a minute; incremental on file change |
-| 2.3 | Provider layer: `QuestionModel` protocol and 4 implementations; keys in Keychain | M | The same prompt works through all four |
-| 2.4 | Evidence pack builder (about 6,000 tokens) with secret redaction | M | Tests: packs stay in budget; no secrets leak in fixture repos |
-| 2.5 | Generators: live diff, post-turn "why", primer (orientation questions, plus past-session summaries if allowed) | L | Questions on your real repos |
-| 2.6 | Validator: evidence resolves, quotes match, one correct answer, notch length limits; staleness on file change | M | Bad fixtures are rejected |
-| 2.7 | Context score and fallback order | S | Thin evidence never yields a codebase question |
-| 2.8 | Prediction questions: "which file first", "tests pass first try" | M | Resolved live in the notch |
-| 2.9 | "This question is wrong" button | S | Retires the card and logs it |
+| 2.0 | Access spike: the indexer runs as a helper started by `meanwhile-hook`, so it can read repos under `~/Desktop`; hook-only fallback | S | A repo on the Desktop gets indexed with no permission prompt, or the fallback is in place |
+| 2.1 | Provider layer: `QuestionModel`; `codex exec` first, then `claude -p`; a queue with 1 live + 1 post-turn call per turn and 20 a day; API keys later | M | A question comes back through `codex exec` from the app in under 10 s; the budget holds |
+| 2.2 | Repo opt-in in the notch (ask once per repo) and empty-repo detection | S | A new repo shows the prompt once |
+| 2.3 | Index core: file map by git blob hash, exclusions, change detection (hooks, FSEvents, git), branch tags, caps | L | A large repo indexes in under a minute; a branch switch updates in under a second |
+| 2.4 | Docs in FTS5 (`detail=column`) with mentions; bounded git history, churn, authorship, `blame -L` on demand | M | FTS finds doc chunks for a touched path; churn and "not yours" exist per file |
+| 2.5 | Evidence packs (about 6,000 tokens) with secret redaction | M | Packs stay in budget; no secrets leak in fixture repos |
+| 2.6 | Generators (live diff, post-turn "why", primer) into a question pool keyed by evidence hashes | L | Questions on your real repos land in the pool |
+| 2.7 | Validator and staleness on blob change | M | Bad fixtures are rejected; changed code retires its questions |
+| 2.8 | Selection v2: rules, priority score, the "why this" line, the `shown` log, the difficulty controller | M | Unit tests for every rule; score terms logged |
+| 2.9 | Context score gates codebase questions | S | Thin evidence never yields a codebase question |
+| 2.10 | Prediction questions and the "this question is wrong" button | M | Predictions resolve live; reports retire cards |
+| 2.11 | Symbols and repo map: definitions, references, PageRank personalized to touched files | L | The map near a touched file fits its budget and names the right neighbors |
 | **Exit** | Of 20 codebase questions on your own repos, you judge at least 16 correct and worth asking | | |
 
 ### Phase 3: Session research deck
