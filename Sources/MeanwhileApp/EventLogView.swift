@@ -45,7 +45,7 @@ struct EventLogView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            if let error = log.serverError {
+            if let error = log.serverError ?? log.storeError {
                 Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
             } else {
                 Label("Listening · \(log.events.count) events", systemImage: "dot.radiowaves.left.and.right")

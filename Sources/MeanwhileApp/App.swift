@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import MeanwhileCore
+import MeanwhileIPC
 
 /// Starts the background notch process: a plain AppKit app, since a SwiftUI `@main App`
 /// can't share the entry point with the CLI subcommands.
@@ -87,11 +88,31 @@ final class StatusMenu: NSObject {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let log = EventLog()
+    let store: EventStore?
+    let log: EventLog
     let notch = NotchController()
     private var eventLogWindow: NSWindow?
+    private var pruneTimer: Timer?
+
+    override init() {
+        var error: String?
+        do {
+            store = try EventStore()
+        } catch let failure {
+            store = nil
+            error = "Could not open \(MeanwhilePaths.eventStore.path): \(failure)"
+        }
+        log = EventLog(store: store, storeError: error)
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Events hold prompts and code; keep only the retention window (30 days).
+        _ = try? store?.prune()
+        pruneTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [store] _ in
+            _ = try? store?.prune()
+        }
+
         // Spike wiring: a prompt opens a question; when the agent stops or needs you, step aside.
         // Not on `PermissionRequest`: Claude Code sends it even when auto mode approves the
         // call. The `Notification` that follows a real prompt to the user is the signal.

@@ -24,14 +24,18 @@ final class EventLog {
 
     private(set) var events: [DebugEvent] = []
     private(set) var serverError: String?
+    private(set) var storeError: String?
     /// Called with each event's hook name (e.g. `UserPromptSubmit`) and the agent's payload.
     /// Drives the notch spike.
     @ObservationIgnored var onAgentEvent: ((String, [String: Any]) -> Void)?
     @ObservationIgnored private var server: EventServer?
     @ObservationIgnored private var retainedEventBytes = 0
 
-    init() {
+    /// Lines are saved to `store` on the server's background queue before the UI sees them.
+    init(store: EventStore?, storeError: String? = nil) {
+        self.storeError = storeError
         let server = EventServer { [weak self] line in
+            _ = try? store?.ingest(line)
             Task { @MainActor in self?.ingest(line) }
         }
         do {
@@ -40,7 +44,10 @@ final class EventLog {
         } catch {
             serverError = "Could not listen on \(MeanwhilePaths.socket.path): \(error)"
         }
-        for line in Spool.drain() { ingest(line) }
+        for line in Spool.drain() {
+            _ = try? store?.ingest(line)
+            ingest(line)
+        }
     }
 
     /// Stop accepting hook connections and remove the socket before the app exits.
