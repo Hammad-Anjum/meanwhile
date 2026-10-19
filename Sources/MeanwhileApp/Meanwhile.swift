@@ -20,9 +20,13 @@ extension MeanwhileCommand {
             abstract: "Start the background notch process (menu bar icon, notch, event server)."
         )
 
+        @Flag(help: "Open the Event Log window at launch.")
+        var showLog = false
+
         func run() throws {
             // ArgumentParser calls run() synchronously from main(), so this is the main thread.
-            MainActor.assumeIsolated { MenuBarApp.run() }
+            let showLog = showLog
+            MainActor.assumeIsolated { MenuBarApp.run(showLog: showLog) }
         }
     }
 

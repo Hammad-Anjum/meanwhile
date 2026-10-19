@@ -7,7 +7,7 @@ import MeanwhileIPC
 /// can't share the entry point with the CLI subcommands.
 @MainActor
 enum MenuBarApp {
-    static func run() -> Never {
+    static func run(showLog: Bool = false) -> Never {
         let app = NSApplication.shared
         // No Dock icon or app menu, like LSUIElement in the old Info.plist.
         app.setActivationPolicy(.accessory)
@@ -15,6 +15,7 @@ enum MenuBarApp {
         // NSApplication.delegate is weak, and the status item disappears when released,
         // so both are held here for the life of the process.
         let delegate = AppDelegate()
+        delegate.showLogAtLaunch = showLog
         let statusMenu = StatusMenu(delegate: delegate)
         app.delegate = delegate
         let signals = terminateOnSignals()
@@ -69,9 +70,8 @@ final class StatusMenu: NSObject {
         decks.submenu = decksMenu()
         menu.addItem(decks)
         menu.addItem(.separator())
-        // Task 0.4 spike controls. The delay gives you time to click back into the terminal.
-        add("Ask Test Question in 3 s", #selector(askSoon), to: menu)
-        add("Compact Notch", #selector(compactNotch), to: menu)
+        // For trying the notch without an agent. The delay gives you time to click back into the terminal.
+        add("Ask a Question in 3 s", #selector(askSoon), to: menu)
         add("Hide Notch", #selector(hideNotch), to: menu)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Meanwhile", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -110,7 +110,6 @@ final class StatusMenu: NSObject {
 
     @objc private func showEventLog() { delegate.showEventLog() }
     @objc private func askSoon() { delegate.askSoon() }
-    @objc private func compactNotch() { delegate.notch.compact() }
     @objc private func hideNotch() { delegate.notch.hide() }
 }
 
@@ -121,6 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let notch = NotchController()
     let decks = Decks()
     let quiz: Quiz
+    var showLogAtLaunch = false
     private var eventLogWindow: NSWindow?
     private var pruneTimer: Timer?
     private var tickTimer: Timer?
@@ -143,8 +143,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quiz = Quiz(decks: decks, reviews: reviews)
         log = EventLog(store: store, storeError: errors.isEmpty ? nil : errors.joined(separator: " · "))
         super.init()
-        notch.onAnswer = { [quiz] question, choice in quiz.answered(question, choice: choice) }
         notch.nextQuestion = { [quiz] in quiz.next() }
+        notch.onRecord = { [quiz] question, answer, confidence in quiz.record(question, answer, confidence: confidence) }
+        notch.onSkip = { [quiz] question in quiz.skipped(question) }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -170,9 +171,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.handle(self.tracker.tick(now: Date()))
             }
         }
-        // Until the notch UI exists, the Event Log is the only window, and the menu bar
-        // icon can be hidden behind the notch. Open the log at launch.
-        showEventLog()
+        // The menu bar icon can be hidden behind the notch on a crowded menu bar;
+        // `meanwhile run --show-log` is the way in then.
+        if showLogAtLaunch { showEventLog() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -192,16 +193,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let state = tracker.sessions[transition.session]
             switch (transition.from, transition.to) {
             case (.needsInput, .working):
-                // Back from a pause in the same turn: the open question, or the next one.
-                if let question = quiz.current ?? quiz.next() { notch.ask(question) } else { notch.compact() }
+                notch.resume()
             case (_, .working):
-                quiz.startWait(session: transition.session, cwd: state?.cwd ?? FileManager.default.currentDirectoryPath)
-                if let question = quiz.next() {
-                    notch.ask(question, turnStarted: state?.turnStartedAt ?? Date())
-                }
+                let cwd = state?.cwd ?? FileManager.default.currentDirectoryPath
+                quiz.startWait(session: transition.session, cwd: cwd)
+                notch.startTurn(agent: state?.agent ?? .claude, repo: quiz.repoName(for: cwd),
+                                since: state?.turnStartedAt ?? Date(), limit: quiz.scheduler.limitPerWait)
             case (_, .needsInput):
-                notch.hide()
-            case (_, .done), (_, .idle), (_, .ended):
+                notch.needsInput()
+            case (_, .done):
+                // An unanswered question stays to be finished; recording happens on answer.
+                notch.finish()
+            case (_, .idle), (_, .ended):
                 quiz.endWait()
                 notch.hide()
             }
@@ -212,7 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             try? await Task.sleep(for: .seconds(3))
             quiz.startWait(session: nil, cwd: tracker.focused?.cwd ?? FileManager.default.currentDirectoryPath)
-            notch.ask(quiz.next() ?? .sample, turnStarted: Date())
+            notch.askOnce(quiz.next() ?? .sample)
         }
     }
 

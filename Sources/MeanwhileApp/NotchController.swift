@@ -3,35 +3,36 @@ import DynamicNotchKit
 import MeanwhileCore
 import SwiftUI
 
-// Task 0.4 spike: compact and expanded notch states, and the focus test
-// (click an answer while the terminal keeps keyboard focus).
-
-/// What the notch asks: a deck card, or the spike's sample question.
-struct SpikeQuestion {
+/// One question as the notch shows it: a deck card, or the sample question.
+struct QuizQuestion: Equatable {
     /// The deck card this came from; nil for the sample question.
     var cardID: String?
-    var deck = "Your codebase"
+    var deck: String
+    var topic: String?
     let text: String
     let options: [String]
     let correct: Int
     var explanation: String?
 
-    init(deck: String = "Your codebase", text: String, options: [String], correct: Int, explanation: String? = nil) {
+    init(cardID: String? = nil, deck: String, topic: String? = nil, text: String, options: [String],
+         correct: Int, explanation: String? = nil) {
+        self.cardID = cardID
         self.deck = deck
+        self.topic = topic
         self.text = text
         self.options = options
         self.correct = correct
         self.explanation = explanation
     }
 
-    init(card: Card, deck: String) {
-        self.init(deck: deck, text: card.question, options: card.choices, correct: card.correctChoice,
-                  explanation: card.explanation)
-        cardID = card.id
+    init(card: Card, deck: String, topic: String?) {
+        self.init(cardID: card.id, deck: deck, topic: topic, text: card.question, options: card.choices,
+                  correct: card.correctChoice, explanation: card.explanation)
     }
 
     /// Written by `codex exec` in the 0.5 provider spike, from Sources/MeanwhileIPC/Spool.swift.
-    static let sample = SpikeQuestion(
+    static let sample = QuizQuestion(
+        deck: "Your codebase",
         text: "Why does Spool.drain rename events.ndjson before reading it?",
         options: [
             "So concurrent appends start a fresh file",
@@ -39,53 +40,282 @@ struct SpikeQuestion {
             "To convert the file to valid JSON",
             "To change the file permissions",
         ],
-        correct: 0
+        correct: 0,
+        explanation: "A hook appending at the same moment then writes to a new events.ndjson instead of one being read."
     )
 }
 
-/// What the notch shows. Shared by the compact and expanded views.
-@MainActor
-final class NotchModel: ObservableObject {
-    enum Phase: Equatable {
-        case asking
-        case answered(choice: Int, via: String)
-    }
-
-    @Published var question = SpikeQuestion.sample
-    @Published var phase = Phase.asking
-    @Published var turnStarted = Date()
-    @Published var answeredCount = 0
-    /// Result of the focus check after an answer, e.g. "iTerm2 kept focus".
-    @Published var focusReport = ""
-    @Published var focusKept = true
+/// One answered question, for the recap.
+struct RecapItem: Identifiable, Equatable {
+    let id = UUID()
+    let question: QuizQuestion
+    let correct: Bool
+    /// "tomorrow", "in 4 days".
+    let comesBack: String
 }
 
+/// Everything the notch views draw. The controller changes it; the views only read it.
+@MainActor
+final class NotchModel: ObservableObject {
+    enum AgentStatus: Equatable {
+        case idle, working, needsInput, done
+    }
+
+    struct Answer: Equatable {
+        /// The chosen option; nil for "I don't know, show me".
+        let choice: Int?
+        let correct: Bool
+    }
+
+    struct QuestionState: Equatable {
+        var question: QuizQuestion
+        var answer: Answer?
+        var confidence: Confidence?
+    }
+
+    enum Content: Equatable {
+        case nothing
+        case question(QuestionState)
+        /// The wait's question limit is reached.
+        case enough
+        case recap
+    }
+
+    @Published var status = AgentStatus.idle
+    @Published var agentName = "Claude Code"
+    @Published var repo = ""
+    @Published var turnStarted = Date()
+    @Published var turnEnded: Date?
+    @Published var content = Content.nothing
+    @Published var asked = 0
+    @Published var limit = 3
+    @Published var results: [RecapItem] = []
+
+    var right: Int { results.filter(\.correct).count }
+
+    /// Questions still to come in this wait, counting an unanswered one on screen.
+    var remaining: Int {
+        var open = 0
+        if case .question(let state) = content, state.answer == nil { open = 1 }
+        return max(0, limit - asked) + open
+    }
+
+    var isAwaitingConfidence: Bool {
+        if case .question(let state) = content, state.answer?.correct == true, state.confidence == nil { return true }
+        return false
+    }
+}
+
+/// Runs the notch through an agent turn: questions while the agent works, an attention
+/// state when it needs you, and a recap and score when it finishes (docs/architecture.md, "States").
 @MainActor
 final class NotchController {
     let model = NotchModel()
+
+    /// The next question for this wait, or nil when there is none.
+    var nextQuestion: (() -> QuizQuestion?)?
+    /// Records an answer (with confidence when it was right); returns when the card comes back.
+    var onRecord: ((QuizQuestion, NotchModel.Answer, Confidence?) -> String)?
+    /// The user skipped the question on screen.
+    var onSkip: ((QuizQuestion) -> Void)?
+
     private var notch: DynamicNotch<NotchExpandedView, NotchCompactLeading, NotchCompactTrailing>?
-    private var collapseTask: Task<Void, Never>?
     private var transitionTask: Task<Void, Never>?
-    /// Called with the question and the chosen index when the user answers.
-    var onAnswer: ((SpikeQuestion, Int) -> Void)?
-    /// Asked for the next question once the user has read the feedback; nil shrinks the notch.
-    var nextQuestion: (() -> SpikeQuestion?)?
+    /// Auto-advance or auto-hide timer; replaced by any user action.
+    private var pendingTask: Task<Void, Never>?
 
     init() {
-        Hotkeys.shared.onAnswer = { [weak self] index in self?.answer(index, via: "hotkey ⌃⌥\(index + 1)") }
+        Hotkeys.shared.onAnswer = { [weak self] index in self?.hotkey(index) }
     }
 
-    /// Shows a question, expanded. Pass `turnStarted` when a new agent turn begins, so the
-    /// timer counts the whole wait across questions.
-    func ask(_ question: SpikeQuestion = .sample, turnStarted: Date? = nil) {
-        collapseTask?.cancel()
+    // MARK: Agent turn
+
+    /// A new agent turn: reset the wait and show its first question.
+    func startTurn(agent: AgentEvent.Agent, repo: String, since: Date, limit: Int) {
+        model.status = .working
+        model.agentName = agent == .codex ? "Codex" : agent == .cursor ? "Cursor" : "Claude Code"
+        model.repo = repo
+        model.turnStarted = since
+        model.turnEnded = nil
+        model.results = []
+        model.asked = 0
+        model.limit = limit
+        model.content = .nothing
+        advance()
+    }
+
+    /// The agent is waiting on the user: step back to the attention state.
+    func needsInput() {
+        model.status = .needsInput
+        Hotkeys.shared.disable()
+        pendingTask?.cancel()
+        showCompact()
+    }
+
+    /// The agent carried on after needing the user.
+    func resume() {
+        model.status = .working
+        if case .question(let state) = model.content, state.answer == nil {
+            showExpanded()
+        } else {
+            advance()
+        }
+    }
+
+    /// The turn ended. An unanswered question stays (with a banner) so it can be finished.
+    func finish() {
+        model.status = .done
+        model.turnEnded = Date()
+        if case .question(let state) = model.content, state.answer == nil {
+            showExpanded()
+        } else if !model.isAwaitingConfidence {
+            showRecapOrDone()
+        }
+    }
+
+    func hide() {
+        pendingTask?.cancel()
         transitionTask?.cancel()
-        model.question = question
-        model.phase = .asking
-        model.focusReport = ""
-        if let turnStarted { model.turnStarted = turnStarted }
-        guard let screen = Self.screen else { return }
+        Hotkeys.shared.disable()
+        model.status = .idle
+        model.content = .nothing
+        guard let notch else { return }
+        transitionTask = Task { await notch.hide() }
+    }
+
+    func shutdown() {
+        pendingTask?.cancel()
+        transitionTask?.cancel()
+        Hotkeys.shared.disable()
+    }
+
+    /// From the menu: a one-off question outside an agent turn.
+    func askOnce(_ question: QuizQuestion) {
+        startTurn(agent: .claude, repo: "", since: Date(), limit: 1)
+        if case .nothing = model.content { show(question) }
+    }
+
+    // MARK: User actions
+
+    func answer(_ choice: Int?) {
+        guard case .question(var state) = model.content, state.answer == nil else { return }
+        let correct = choice == state.question.correct
+        state.answer = NotchModel.Answer(choice: choice, correct: correct)
+        model.content = .question(state)
+        if correct {
+            // Ask how sure; a quiet default if the user doesn't pick within a while.
+            schedule(after: 12) { [weak self] in self?.choose(.fairlySure) }
+        } else {
+            Hotkeys.shared.disable()
+            record(state, confidence: nil)
+            schedule(after: 8) { [weak self] in self?.moveOn() }
+        }
+    }
+
+    func choose(_ confidence: Confidence) {
+        guard case .question(var state) = model.content, state.answer?.correct == true, state.confidence == nil else { return }
+        state.confidence = confidence
+        model.content = .question(state)
+        Hotkeys.shared.disable()
+        record(state, confidence: confidence)
+        schedule(after: 0.6) { [weak self] in self?.moveOn() }
+    }
+
+    /// Skip (before answering) or Next (after).
+    func skipOrNext() {
+        guard case .question(let state) = model.content else { return }
+        if state.answer == nil {
+            onSkip?(state.question)
+        } else if state.answer?.correct == true, state.confidence == nil {
+            choose(.fairlySure)
+            return
+        }
+        moveOn()
+    }
+
+    /// Click on the compact notch: open whatever there is to see.
+    func expandFromCompact() {
+        switch model.content {
+        case .nothing:
+            if model.status == .done, !model.results.isEmpty { model.content = .recap; showExpanded() }
+        default:
+            showExpanded()
+        }
+    }
+
+    private func hotkey(_ index: Int) {
+        if model.isAwaitingConfidence {
+            if Confidence.allCases.indices.contains(index) { choose(Confidence.allCases[index]) }
+        } else if case .question(let state) = model.content, state.answer == nil,
+                  state.question.options.indices.contains(index) {
+            answer(index)
+        }
+    }
+
+    // MARK: Flow
+
+    private func record(_ state: NotchModel.QuestionState, confidence: Confidence?) {
+        guard let answer = state.answer else { return }
+        let comesBack = onRecord?(state.question, answer, confidence) ?? "later"
+        model.results.append(RecapItem(question: state.question, correct: answer.correct, comesBack: comesBack))
+    }
+
+    /// After a question: the next one, the recap if the agent is done, or compact.
+    private func moveOn() {
+        pendingTask?.cancel()
+        if model.status == .done { showRecapOrDone() } else { advance() }
+    }
+
+    private func advance() {
+        if let question = nextQuestion?() {
+            show(question)
+        } else {
+            model.content = model.asked > 0 ? .enough : .nothing
+            Hotkeys.shared.disable()
+            showCompact()
+        }
+    }
+
+    private func show(_ question: QuizQuestion) {
+        model.asked += 1
+        model.content = .question(NotchModel.QuestionState(question: question))
         Hotkeys.shared.enable()
+        showExpanded()
+    }
+
+    private func showRecapOrDone() {
+        Hotkeys.shared.disable()
+        if model.results.isEmpty {
+            model.content = .nothing
+            showCompact()
+            schedule(after: 4) { [weak self] in self?.hide() }
+        } else {
+            model.content = .recap
+            showExpanded()
+            // Hovering keeps it open (DynamicNotchKit `keepVisible`); then the score, then idle.
+            schedule(after: 10) { [weak self] in
+                guard let self else { return }
+                self.model.content = .nothing
+                self.showCompact()
+                self.schedule(after: 4) { [weak self] in self?.hide() }
+            }
+        }
+    }
+
+    private func schedule(after seconds: Double, _ action: @escaping @MainActor () -> Void) {
+        pendingTask?.cancel()
+        pendingTask = Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            action()
+        }
+    }
+
+    // MARK: Window
+
+    private func showExpanded() {
+        transitionTask?.cancel()
+        guard let screen = Self.screen else { return }
         let notch = notchView()
         transitionTask = Task { [weak self] in
             await notch.expand(on: screen)
@@ -94,58 +324,14 @@ final class NotchController {
         }
     }
 
-    /// Shrinks to the compact state (timer and count). Called after feedback.
-    func compact() {
-        collapseTask?.cancel()
+    private func showCompact() {
         transitionTask?.cancel()
         guard let screen = Self.screen else { return }
         let notch = notchView()
-        transitionTask = Task { await notch.compact(on: screen) }
-    }
-
-    func hide() {
-        collapseTask?.cancel()
-        transitionTask?.cancel()
-        Hotkeys.shared.disable()
-        guard let notch else { return }
-        transitionTask = Task { await notch.hide() }
-    }
-
-    func shutdown() {
-        collapseTask?.cancel()
-        transitionTask?.cancel()
-        Hotkeys.shared.disable()
-    }
-
-    func answer(_ choice: Int, via source: String) {
-        guard model.phase == .asking, model.question.options.indices.contains(choice) else { return }
-        let frontmost = NSWorkspace.shared.frontmostApplication
-        model.phase = .answered(choice: choice, via: source)
-        Hotkeys.shared.disable()
-        model.answeredCount += 1
-        onAnswer?(model.question, choice)
-
-        // Check a moment later, after AppKit has finished handling the click.
-        collapseTask = Task {
-            try? await Task.sleep(for: .milliseconds(150))
-            let panelIsKey = notch?.windowController?.window?.isKeyWindow ?? false
-            let stillFront = NSWorkspace.shared.frontmostApplication
-            model.focusKept = !panelIsKey && !NSApp.isActive && stillFront == frontmost
-            let name = stillFront?.localizedName ?? "?"
-            model.focusReport = model.focusKept
-                ? "\(name) kept keyboard focus"
-                : "Focus moved (panel key: \(panelIsKey), Meanwhile active: \(NSApp.isActive))"
-            print("[notch spike] answer \(choice + 1) via \(source): \(model.focusReport)")
-
-            // Long enough to read the explanation, then the next question if the wait allows one.
-            try? await Task.sleep(for: .seconds(6))
+        transitionTask = Task { [weak self] in
+            await notch.compact(on: screen)
             guard !Task.isCancelled else { return }
-            if let next = nextQuestion?() {
-                ask(next)
-                return
-            }
-            guard let screen = Self.screen else { return }
-            await notchView().compact(on: screen)
+            self?.makeClickThroughFocusSafe()
         }
     }
 
@@ -162,9 +348,9 @@ final class NotchController {
         let made = DynamicNotch(
             hoverBehavior: [.keepVisible, .increaseShadow],
             style: .auto, // notch shape on notched screens, a floating pill elsewhere
-            expanded: { NotchExpandedView(model: model, onAnswer: { [weak self] in self?.answer($0, via: "click") }) },
-            compactLeading: { NotchCompactLeading(model: model) },
-            compactTrailing: { NotchCompactTrailing(model: model) }
+            expanded: { NotchExpandedView(model: model, controller: self) },
+            compactLeading: { NotchCompactLeading(model: model, controller: self) },
+            compactTrailing: { NotchCompactTrailing(model: model, controller: self) }
         )
         notch = made
         return made
@@ -173,116 +359,5 @@ final class NotchController {
     /// The built-in display if there is one (it has the notch), else the main screen.
     private static var screen: NSScreen? {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens.first
-    }
-}
-
-// MARK: - Views
-
-struct NotchExpandedView: View {
-    @ObservedObject var model: NotchModel
-    let onAnswer: (Int) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label(model.question.deck, systemImage: "rectangle.stack")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                TurnTimer(start: model.turnStarted).foregroundStyle(.secondary)
-            }
-            Text(model.question.text)
-                .font(.system(size: 14, weight: .semibold))
-                .fixedSize(horizontal: false, vertical: true)
-
-            ForEach(Array(model.question.options.enumerated()), id: \.offset) { index, option in
-                Button { onAnswer(index) } label: {
-                    HStack(spacing: 8) {
-                        Text("\(index + 1)")
-                            .font(.caption.monospacedDigit().weight(.bold))
-                            .frame(width: 18, height: 18)
-                            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
-                        Text(option).font(.system(size: 13))
-                        Spacer(minLength: 0)
-                        if case .answered = model.phase, index == model.question.correct {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        } else if case .answered(let choice, _) = model.phase, choice == index {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(model.phase != .asking)
-            }
-
-            footer
-        }
-        .foregroundStyle(.white)
-        .frame(width: 400)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-
-    @ViewBuilder private var footer: some View {
-        switch model.phase {
-        case .asking:
-            Text("Click an answer, or press ⌃⌥1–\(model.question.options.count)")
-                .font(.caption).foregroundStyle(.secondary)
-        case .answered:
-            if let explanation = model.question.explanation {
-                Text(explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            focusLine
-        }
-    }
-
-    /// The 0.4 focus check, kept visible while the notch UI is still a spike.
-    @ViewBuilder private var focusLine: some View {
-        if case .answered(_, let source) = model.phase {
-            HStack(spacing: 6) {
-                Image(systemName: model.focusKept ? "keyboard" : "exclamationmark.triangle.fill")
-                    .foregroundStyle(model.focusKept ? .green : .orange)
-                Text(model.focusReport.isEmpty ? "Checking focus…" : "\(model.focusReport) · \(source)")
-            }
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-        }
-    }
-}
-
-struct NotchCompactLeading: View {
-    @ObservedObject var model: NotchModel
-    var body: some View {
-        TurnTimer(start: model.turnStarted).foregroundStyle(.white).padding(.leading, 4)
-    }
-}
-
-struct NotchCompactTrailing: View {
-    @ObservedObject var model: NotchModel
-    var body: some View {
-        Label("\(model.answeredCount)", systemImage: "checkmark.bubble")
-            .labelStyle(.titleAndIcon)
-            .font(.caption.monospacedDigit().weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(.trailing, 4)
-    }
-}
-
-/// Time since the agent turn started, as m:ss.
-struct TurnTimer: View {
-    let start: Date
-    var body: some View {
-        TimelineView(.periodic(from: start, by: 1)) { context in
-            let seconds = max(0, Int(context.date.timeIntervalSince(start)))
-            Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
-                .font(.caption.monospacedDigit().weight(.semibold))
-        }
     }
 }

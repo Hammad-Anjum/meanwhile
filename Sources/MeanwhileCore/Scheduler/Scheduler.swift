@@ -21,28 +21,47 @@ public struct Review: Sendable, Equatable, Codable {
     }
 }
 
+/// How sure the user was of a correct answer: the notch's three buttons after "Right".
+public enum Confidence: String, Sendable, Codable, CaseIterable {
+    case guessed, fairlySure, knewIt
+
+    /// Interval steps to move up from here: a guess holds the interval.
+    var steps: Int {
+        switch self {
+        case .guessed: 0
+        case .fairlySure: 1
+        case .knewIt: 2
+        }
+    }
+}
+
 /// The v1 spacing rule from the plan: missed → tomorrow, then 2, 4, 7… days by confidence.
 /// Keeps the same data a later FSRS scheduler would need (every answer is logged too).
 public enum Spacing {
     public static let intervals: [TimeInterval] = [1, 2, 4, 7, 14, 30, 60].map { $0 * 24 * 3600 }
 
-    /// The review after answering. A confident correct answer moves one interval up; a
-    /// correct guess repeats the current interval; a miss starts over at one day.
-    public static func answered(_ review: Review, correct: Bool, confident: Bool, at now: Date) -> Review {
+    /// The review after answering. A correct answer moves up by its confidence's steps from
+    /// the current interval (a first answer starts below the 1-day step); a miss starts over.
+    public static func answered(_ review: Review, correct: Bool, confidence: Confidence, at now: Date) -> Review {
         var next = review
         next.lastShown = now
         next.timesShown += 1
         if correct {
             next.timesCorrect += 1
-            let current = review.step ?? 0
-            next.step = review.step == nil
-                ? (confident ? 1 : 0)
-                : min(confident ? current + 1 : current, intervals.count - 1)
+            let base = review.step.map { $0 + confidence.steps } ?? confidence.steps
+            next.step = min(base, intervals.count - 1)
         } else {
             next.step = 0
         }
         next.dueAt = now.addingTimeInterval(intervals[next.step ?? 0])
         return next
+    }
+
+    /// When a review comes back, in words for the recap: "tomorrow", "in 4 days".
+    public static func comesBack(_ review: Review, from now: Date) -> String {
+        guard let due = review.dueAt else { return "later" }
+        let days = Int((due.timeIntervalSince(now) / (24 * 3600)).rounded())
+        return days <= 1 ? "tomorrow" : "in \(days) days"
     }
 
     /// Shown but not answered (skipped, or the agent finished first). Spacing unchanged.

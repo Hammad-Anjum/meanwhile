@@ -45,19 +45,21 @@ private func scheduled(_ id: String, pack: String, topic: String = "a") -> Sched
 
 @Test func firstAnswerSetsTheFirstInterval() {
     let fresh = Review(cardID: "c")
-    let sure = Spacing.answered(fresh, correct: true, confident: true, at: now)
+    let sure = Spacing.answered(fresh, correct: true, confidence: .fairlySure, at: now)
     #expect(sure.step == 1 && sure.dueAt == now.addingTimeInterval(2 * day))
-    let guess = Spacing.answered(fresh, correct: true, confident: false, at: now)
+    let knew = Spacing.answered(fresh, correct: true, confidence: .knewIt, at: now)
+    #expect(knew.step == 2 && knew.dueAt == now.addingTimeInterval(4 * day))
+    let guess = Spacing.answered(fresh, correct: true, confidence: .guessed, at: now)
     #expect(guess.step == 0 && guess.dueAt == now.addingTimeInterval(day))
-    let miss = Spacing.answered(fresh, correct: false, confident: true, at: now)
+    let miss = Spacing.answered(fresh, correct: false, confidence: .knewIt, at: now)
     #expect(miss.step == 0 && miss.dueAt == now.addingTimeInterval(day) && miss.timesCorrect == 0)
 }
 
-@Test func confidentAnswersClimbTwoFourSevenDays() {
+@Test func fairlySureAnswersClimbTwoFourSevenDays() {
     var review = Review(cardID: "c")
     var days: [Double] = []
     for _ in 0..<4 {
-        review = Spacing.answered(review, correct: true, confident: true, at: now)
+        review = Spacing.answered(review, correct: true, confidence: .fairlySure, at: now)
         days.append((review.dueAt!.timeIntervalSince(now) / day).rounded())
     }
     #expect(days == [2, 4, 7, 14])
@@ -66,15 +68,22 @@ private func scheduled(_ id: String, pack: String, topic: String = "a") -> Sched
 
 @Test func aGuessHoldsTheIntervalAndAMissStartsOver() {
     var review = Review(cardID: "c", step: 3)
-    review = Spacing.answered(review, correct: true, confident: false, at: now)
+    review = Spacing.answered(review, correct: true, confidence: .guessed, at: now)
     #expect(review.step == 3)
-    review = Spacing.answered(review, correct: false, confident: true, at: now)
+    review = Spacing.answered(review, correct: true, confidence: .knewIt, at: now)
+    #expect(review.step == 5)
+    review = Spacing.answered(review, correct: false, confidence: .knewIt, at: now)
     #expect(review.step == 0 && review.dueAt == now.addingTimeInterval(day))
 }
 
 @Test func intervalsStopAtSixtyDays() {
-    let review = Spacing.answered(Review(cardID: "c", step: 6), correct: true, confident: true, at: now)
+    let review = Spacing.answered(Review(cardID: "c", step: 6), correct: true, confidence: .knewIt, at: now)
     #expect(review.step == 6 && review.dueAt == now.addingTimeInterval(60 * day))
+}
+
+@Test func comesBackInWords() {
+    #expect(Spacing.comesBack(Spacing.answered(Review(cardID: "c"), correct: false, confidence: .guessed, at: now), from: now) == "tomorrow")
+    #expect(Spacing.comesBack(Spacing.answered(Review(cardID: "c"), correct: true, confidence: .knewIt, at: now), from: now) == "in 4 days")
 }
 
 @Test func shownWithoutAnswerKeepsSpacing() {
@@ -147,8 +156,8 @@ private func scheduled(_ id: String, pack: String, topic: String = "a") -> Sched
 
 @Test func reviewStoreRecordsAnswersAndShows() throws {
     let store = try ReviewStore(path: nil)
-    try store.recordAnswer(cardID: "c1", choice: 0, correct: true, confident: true, session: "s", at: now)
-    try store.recordAnswer(cardID: "c1", choice: 1, correct: false, confident: false, session: "s", at: now.addingTimeInterval(60))
+    try store.recordAnswer(cardID: "c1", choice: 0, correct: true, confidence: .fairlySure, session: "s", at: now)
+    try store.recordAnswer(cardID: "c1", choice: nil, correct: false, confidence: .guessed, session: "s", at: now.addingTimeInterval(60))
     try store.recordShown(cardID: "c2", at: now)
 
     let reviews = try store.reviews()

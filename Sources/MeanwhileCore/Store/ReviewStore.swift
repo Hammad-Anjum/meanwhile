@@ -32,16 +32,20 @@ public final class ReviewStore: Sendable {
     }
 
     /// Logs an answer and moves the card's spacing. Returns the updated review.
+    /// - Parameter choice: the chosen option, or nil for "I don't know, show me".
     @discardableResult
-    public func recordAnswer(cardID: String, choice: Int, correct: Bool, confident: Bool,
+    public func recordAnswer(cardID: String, choice: Int?, correct: Bool, confidence: Confidence,
                              session: String?, at now: Date = Date()) throws -> Review {
         try writer.write { db in
             let current = try ReviewRecord.fetchOne(db, key: cardID)?.review ?? Review(cardID: cardID)
-            let next = Spacing.answered(current, correct: correct, confident: confident, at: now)
+            let next = Spacing.answered(current, correct: correct, confidence: confidence, at: now)
             try ReviewRecord(next).save(db)
             try db.execute(
-                sql: "INSERT INTO answer (cardID, answeredAt, choice, correct, confident, session) VALUES (?, ?, ?, ?, ?, ?)",
-                arguments: [cardID, now, choice, correct, confident, session])
+                sql: """
+                    INSERT INTO answer (cardID, answeredAt, choice, correct, confident, confidence, session)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [cardID, now, choice ?? -1, correct, confidence != .guessed, confidence.rawValue, session])
             return next
         }
     }
@@ -78,6 +82,12 @@ public final class ReviewStore: Sendable {
                 t.column("correct", .boolean).notNull()
                 t.column("confident", .boolean).notNull()
                 t.column("session", .text)
+            }
+        }
+        // The notch's three confidence buttons (task 1.6). `choice` is -1 for "show me".
+        migrator.registerMigration("v2") { db in
+            try db.alter(table: "answer") { t in
+                t.add(column: "confidence", .text)
             }
         }
         return migrator
