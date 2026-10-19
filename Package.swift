@@ -24,7 +24,9 @@ let package = Package(
             dependencies: [
                 "MeanwhileIPC",
                 .product(name: "GRDB", package: "GRDB.swift"),
-            ]
+            ],
+            // Starter decks (task 1.4). The resource bundle must ship next to the binary.
+            resources: [.copy("Resources/Packs")]
         ),
         // The `meanwhile` command: CLI subcommands plus the background notch process.
         .executableTarget(

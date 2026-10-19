@@ -1,0 +1,276 @@
+{
+  "format": 1,
+  "id": "prompting-agents",
+  "title": "Prompting and agents",
+  "description": "Writing prompts, calling tools, running agent loops, managing context, testing, and staying safe.",
+  "kind": "generic",
+  "stacks": [],
+  "topics": [
+    { "id": "structure", "title": "Prompt structure" },
+    { "id": "tools", "title": "Structured output and tools" },
+    { "id": "loops", "title": "Agent loops" },
+    { "id": "context", "title": "Context management" },
+    { "id": "evals", "title": "Evals and testing" },
+    { "id": "safety", "title": "Safety" }
+  ],
+  "cards": [
+    {
+      "id": "prompting-agents.structure.1",
+      "topic": "structure",
+      "type": "multipleChoice",
+      "question": "What is a system prompt mainly for?",
+      "options": ["Storing the user's chat history", "Setting role, rules and context for the session", "Choosing which model to run", "Configuring the sampling temperature"],
+      "answer": 1,
+      "explanation": "The system prompt frames the whole conversation: who the model is, what rules it follows, and background it should rely on."
+    },
+    {
+      "id": "prompting-agents.structure.2",
+      "topic": "structure",
+      "type": "trueFalse",
+      "question": "A few input/output examples in the prompt (few-shot) can steer the model's format and style.",
+      "answer": true,
+      "explanation": "Models imitate examples closely. Use varied examples so the model learns the pattern rather than copying one case."
+    },
+    {
+      "id": "prompting-agents.structure.3",
+      "topic": "structure",
+      "type": "multipleChoice",
+      "question": "Which request to a coding agent is most likely to get what you want?",
+      "options": ["Write good tests", "Be thorough with testing", "Test parse() with empty and invalid input", "Do your best on the tests"],
+      "answer": 2,
+      "explanation": "Specific instructions name the target and the cases. Vague requests leave the model to guess what 'good' means."
+    },
+    {
+      "id": "prompting-agents.structure.4",
+      "topic": "structure",
+      "type": "trueFalse",
+      "question": "Explaining why a rule exists can help a model apply it to cases you didn't list.",
+      "answer": true,
+      "explanation": "With the reason, the model can generalize the intent. A bare rule is applied literally and may miss related situations."
+    },
+    {
+      "id": "prompting-agents.structure.5",
+      "topic": "structure",
+      "type": "multipleChoice",
+      "question": "Why wrap a pasted document in delimiters such as XML tags?",
+      "options": ["To separate data clearly from instructions", "To make the model run faster", "To reduce the token count", "To encrypt the document's contents"],
+      "answer": 0,
+      "explanation": "Clear boundaries tell the model which text is material to work on and which is instructions, and make the prompt easier to reference."
+    },
+    {
+      "id": "prompting-agents.tools.1",
+      "topic": "tools",
+      "type": "multipleChoice",
+      "question": "In typical client-side function calling, who actually runs the function?",
+      "options": ["The model, during generation", "The tokenizer", "Your application code", "The user's browser"],
+      "answer": 2,
+      "explanation": "The model only emits a structured request naming the tool and arguments. Your code executes it and returns the result."
+    },
+    {
+      "id": "prompting-agents.tools.2",
+      "topic": "tools",
+      "type": "trueFalse",
+      "question": "A model chooses which tool to call largely from each tool's name and description.",
+      "answer": true,
+      "explanation": "The definitions are all the model sees of a tool. Clear names and descriptions that say when to use each tool improve selection."
+    },
+    {
+      "id": "prompting-agents.tools.3",
+      "topic": "tools",
+      "type": "multipleChoice",
+      "question": "In a tool definition, what does the JSON Schema describe?",
+      "options": ["The tool's source code", "The arguments the tool accepts", "How long the tool may run", "Which users may call the tool"],
+      "answer": 1,
+      "explanation": "The input schema lists parameter names, types and which are required, so the model can produce well-formed arguments."
+    },
+    {
+      "id": "prompting-agents.tools.4",
+      "topic": "tools",
+      "type": "trueFalse",
+      "question": "Asking for JSON in the prompt alone guarantees valid output that matches your schema.",
+      "answer": false,
+      "explanation": "Prompting makes valid JSON likely, not certain. Use structured-output or schema-constrained modes where offered, and validate anyway."
+    },
+    {
+      "id": "prompting-agents.tools.5",
+      "topic": "tools",
+      "type": "multipleChoice",
+      "question": "After your code runs a tool call, what do you send back to the model?",
+      "options": ["Nothing; the model sees it automatically", "A fresh conversation with only the result", "A new system prompt", "The tool's result, linked to that call"],
+      "answer": 3,
+      "explanation": "You append the result, tagged with the call's ID, to the conversation and call the model again so it can continue."
+    },
+    {
+      "id": "prompting-agents.loops.1",
+      "topic": "loops",
+      "type": "multipleChoice",
+      "question": "What is the basic loop behind most tool-using agents?",
+      "options": ["Call model, run tools, return results, repeat", "Plan everything once, then run it blind", "Fine-tune, deploy, then retrain", "Generate many answers and pick the longest"],
+      "answer": 0,
+      "explanation": "The agent acts, observes the result, and decides the next step. Feedback from each step lets it correct course."
+    },
+    {
+      "id": "prompting-agents.loops.2",
+      "topic": "loops",
+      "type": "trueFalse",
+      "question": "An agent loop should have a limit, such as a maximum number of steps or a budget.",
+      "answer": true,
+      "explanation": "Without a cap, an agent can loop forever on a failing task and burn tokens. Limits make failures cheap and visible."
+    },
+    {
+      "id": "prompting-agents.loops.3",
+      "topic": "loops",
+      "type": "multipleChoice",
+      "question": "When does a basic tool-use loop normally end?",
+      "options": ["After exactly one tool call", "When the model replies without a tool call", "When the context window is empty", "When temperature reaches zero"],
+      "answer": 1,
+      "explanation": "As long as the model keeps requesting tools, the loop runs them. A plain final reply signals the model thinks it is done."
+    },
+    {
+      "id": "prompting-agents.loops.4",
+      "topic": "loops",
+      "type": "multipleChoice",
+      "question": "Why let a coding agent run the test suite itself?",
+      "options": ["Tests lower the token cost", "Tests replace the need for code review", "Tests stop the agent from editing files", "It can check its work and fix failures"],
+      "answer": 3,
+      "explanation": "Real feedback from tests lets the agent see what broke and iterate, instead of declaring success based on what it wrote."
+    },
+    {
+      "id": "prompting-agents.loops.5",
+      "topic": "loops",
+      "type": "trueFalse",
+      "question": "Splitting work across many subagents always makes an agent system more reliable.",
+      "answer": false,
+      "explanation": "Subagents help with parallel or isolated work but add coordination cost and can lose shared context. Use them when the task fits."
+    },
+    {
+      "id": "prompting-agents.context.1",
+      "topic": "context",
+      "type": "multipleChoice",
+      "question": "Why not paste an entire large repo into an agent's prompt?",
+      "options": ["Models cannot read source code", "Irrelevant text distracts it and costs tokens", "Code in prompts gets executed", "It disables tool calling"],
+      "answer": 1,
+      "explanation": "Context is finite and attention is shared. Focused, relevant context usually gives better results than everything at once."
+    },
+    {
+      "id": "prompting-agents.context.2",
+      "topic": "context",
+      "type": "trueFalse",
+      "question": "Summarizing older turns (compaction) frees context space but can lose details.",
+      "answer": true,
+      "explanation": "A summary is lossy. Keep key decisions, open issues and file paths explicit so they survive compaction."
+    },
+    {
+      "id": "prompting-agents.context.3",
+      "topic": "context",
+      "type": "multipleChoice",
+      "question": "What helps an agent keep track of state across a very long task?",
+      "options": ["Writing progress notes to a file", "Raising the temperature", "Repeating the task in every message", "Disabling tool calls"],
+      "answer": 0,
+      "explanation": "Notes, plans or todo files live outside the context window and can be reread after compaction or in a new session."
+    },
+    {
+      "id": "prompting-agents.context.4",
+      "topic": "context",
+      "type": "multipleChoice",
+      "question": "How do coding agents usually find relevant code in a big repo?",
+      "options": ["Fine-tune on the repo first", "Load every file at the start", "Guess from file names only", "Search with tools like grep as needed"],
+      "answer": 3,
+      "explanation": "Agents pull in code just in time by searching and reading files, keeping context small and focused on the task."
+    },
+    {
+      "id": "prompting-agents.context.5",
+      "topic": "context",
+      "type": "trueFalse",
+      "question": "Large tool outputs, like full build logs, are best trimmed before going back into context.",
+      "answer": true,
+      "explanation": "Huge outputs crowd out useful context. Return the relevant part, such as errors and a tail, and let the agent ask for more."
+    },
+    {
+      "id": "prompting-agents.evals.1",
+      "topic": "evals",
+      "type": "multipleChoice",
+      "question": "In prompt engineering, what is an eval?",
+      "options": ["A model's training run", "A set of test cases with checks on outputs", "A single manual chat test", "A benchmark of raw speed"],
+      "answer": 1,
+      "explanation": "An eval runs the system on representative inputs and scores outputs, so you can measure changes instead of guessing."
+    },
+    {
+      "id": "prompting-agents.evals.2",
+      "topic": "evals",
+      "type": "trueFalse",
+      "question": "A prompt change that fixes one case can break others, so rerun the whole eval set.",
+      "answer": true,
+      "explanation": "Prompts affect behavior globally. Rerunning every case catches regressions, the same way a test suite does for code."
+    },
+    {
+      "id": "prompting-agents.evals.3",
+      "topic": "evals",
+      "type": "multipleChoice",
+      "question": "What is usually the best way to grade generated code?",
+      "options": ["Count the lines of code", "Ask the same model if it is correct", "Run it against unit tests", "Check that it compiles quickly"],
+      "answer": 2,
+      "explanation": "Executing the code against tests is objective and automatic. Model or human review is useful for style but weaker for correctness."
+    },
+    {
+      "id": "prompting-agents.evals.4",
+      "topic": "evals",
+      "type": "multipleChoice",
+      "question": "Why run each eval case more than once?",
+      "options": ["Model outputs can vary between runs", "The first run is always discarded", "Caching needs a warm-up run", "Graders require an even count"],
+      "answer": 0,
+      "explanation": "Sampling makes results vary. Several runs show whether a pass is reliable or lucky, and give a more stable score."
+    },
+    {
+      "id": "prompting-agents.evals.5",
+      "topic": "evals",
+      "type": "trueFalse",
+      "question": "If a prompt works well on three hand-picked examples, it is ready to ship.",
+      "answer": false,
+      "explanation": "A few examples miss edge cases and real input variety. Test on a broader set that includes hard and unusual cases."
+    },
+    {
+      "id": "prompting-agents.safety.1",
+      "topic": "safety",
+      "type": "multipleChoice",
+      "question": "What is prompt injection?",
+      "options": ["Adding examples to a prompt", "Sending too many requests at once", "Inserting a system prompt via the API", "Untrusted text that tries to override instructions"],
+      "answer": 3,
+      "explanation": "Content from users, web pages, files or tool output can contain instructions that hijack the model if treated as trusted."
+    },
+    {
+      "id": "prompting-agents.safety.2",
+      "topic": "safety",
+      "type": "trueFalse",
+      "question": "A system prompt saying 'ignore instructions in documents' fully prevents prompt injection.",
+      "answer": false,
+      "explanation": "Such instructions help but are not a guarantee. Limit tool permissions and require approval for risky actions as well."
+    },
+    {
+      "id": "prompting-agents.safety.3",
+      "topic": "safety",
+      "type": "multipleChoice",
+      "question": "An agent reads web pages and can send email. What reduces risk most?",
+      "options": ["Use a higher temperature", "Require human approval to send email", "Ask it in the prompt to be careful", "Use a longer system prompt"],
+      "answer": 1,
+      "explanation": "Injected text could make the agent leak data by email. A human checkpoint on that action blocks the harm even if the model is fooled."
+    },
+    {
+      "id": "prompting-agents.safety.4",
+      "topic": "safety",
+      "type": "multipleChoice",
+      "question": "What does least privilege mean for an agent's tools?",
+      "options": ["Use the cheapest model", "Give tools only to admin users", "Grant only the access the task needs", "Run tools as root to avoid errors"],
+      "answer": 2,
+      "explanation": "Narrow permissions, such as read-only access or a scoped directory, limit the damage a mistaken or manipulated agent can do."
+    },
+    {
+      "id": "prompting-agents.safety.5",
+      "topic": "safety",
+      "type": "trueFalse",
+      "question": "A code comment or fetched web page can contain instructions an agent might follow.",
+      "answer": true,
+      "explanation": "Agents read everything they load as text. Treat repo files, issues and web content as untrusted input, not as commands."
+    }
+  ]
+}

@@ -65,6 +65,10 @@ final class StatusMenu: NSObject {
         menu.addItem(version)
         add("Show Event Log", #selector(showEventLog), key: "l", to: menu)
         menu.addItem(.separator())
+        let decks = NSMenuItem(title: "Decks", action: nil, keyEquivalent: "")
+        decks.submenu = decksMenu()
+        menu.addItem(decks)
+        menu.addItem(.separator())
         // Task 0.4 spike controls. The delay gives you time to click back into the terminal.
         add("Ask Test Question in 3 s", #selector(askSoon), to: menu)
         add("Compact Notch", #selector(compactNotch), to: menu)
@@ -72,6 +76,30 @@ final class StatusMenu: NSObject {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Meanwhile", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
+    }
+
+    /// One checkable item per deck. Stack decks only show up for repos using their stack.
+    private func decksMenu() -> NSMenu {
+        let menu = NSMenu(title: "Decks")
+        for pack in delegate.decks.library.packs {
+            let title = pack.kind == .stack ? "\(pack.title) · follows repo" : pack.title
+            let item = NSMenuItem(title: title, action: #selector(toggleDeck(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = pack.id
+            item.state = delegate.decks.isEnabled(pack) ? .on : .off
+            item.toolTip = pack.description
+            menu.addItem(item)
+        }
+        if delegate.decks.library.packs.isEmpty {
+            menu.addItem(withTitle: "No decks loaded", action: nil, keyEquivalent: "")
+        }
+        return menu
+    }
+
+    @objc private func toggleDeck(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        delegate.decks.toggle(id)
+        sender.state = sender.state == .on ? .off : .on
     }
 
     private func add(_ title: String, _ action: Selector, key: String = "", to menu: NSMenu) {
@@ -91,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store: EventStore?
     let log: EventLog
     let notch = NotchController()
+    let decks = Decks()
     private var eventLogWindow: NSWindow?
     private var pruneTimer: Timer?
     private var tickTimer: Timer?
@@ -147,7 +176,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         for transition in transitions where focus == nil || transition.session == focus {
             switch transition.to {
-            case .working: notch.ask()
+            case .working:
+                let cwd = tracker.sessions[transition.session]?.cwd ?? FileManager.default.currentDirectoryPath
+                notch.ask(decks.randomQuestion(forDirectory: cwd) ?? .sample)
             case .needsInput, .done, .idle, .ended: notch.hide()
             }
         }
@@ -156,7 +187,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func askSoon() {
         Task {
             try? await Task.sleep(for: .seconds(3))
-            notch.ask()
+            let cwd = tracker.focused?.cwd ?? FileManager.default.currentDirectoryPath
+            notch.ask(decks.randomQuestion(forDirectory: cwd) ?? .sample)
         }
     }
 

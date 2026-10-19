@@ -1,0 +1,296 @@
+{
+  "format": 1,
+  "id": "python",
+  "title": "Python",
+  "description": "Python semantics, data structures, async, typing, testing and common pitfalls.",
+  "kind": "stack",
+  "stacks": ["python"],
+  "topics": [
+    { "id": "semantics", "title": "Language semantics" },
+    { "id": "data", "title": "Data structures and complexity" },
+    { "id": "concurrency", "title": "Async and concurrency" },
+    { "id": "typing", "title": "Typing and tooling" },
+    { "id": "testing", "title": "Testing and debugging" },
+    { "id": "performance", "title": "Performance and pitfalls" }
+  ],
+  "cards": [
+    {
+      "id": "python.semantics.1",
+      "topic": "semantics",
+      "type": "multipleChoice",
+      "question": "With `def f(x=[])`, what happens to the default list across calls that omit `x`?",
+      "options": ["A new list is made each call", "It is shared and keeps changes", "It raises a TypeError", "It is frozen and read-only"],
+      "answer": 1,
+      "explanation": "Defaults are evaluated once, when `def` runs, so every call shares one list. Use `x=None` and create the list inside the function.",
+      "source": "https://docs.python.org/3/reference/compound_stmts.html#function-definitions"
+    },
+    {
+      "id": "python.semantics.2",
+      "topic": "semantics",
+      "type": "trueFalse",
+      "question": "`a = b = []` creates two separate lists.",
+      "answer": false,
+      "explanation": "Both names are bound to the same list object, so `a.append(1)` also shows up in `b`. Assignment never copies."
+    },
+    {
+      "id": "python.semantics.3",
+      "topic": "semantics",
+      "type": "multipleChoice",
+      "question": "Which statement lets a nested function rebind a variable of its enclosing function?",
+      "options": ["global", "static", "nonlocal", "outer"],
+      "answer": 2,
+      "explanation": "`nonlocal` binds to the nearest enclosing function scope. `global` targets module scope. Without either, assignment makes a new local."
+    },
+    {
+      "id": "python.semantics.4",
+      "topic": "semantics",
+      "type": "trueFalse",
+      "question": "A tuple is immutable, yet a list stored inside it can still be changed.",
+      "answer": true,
+      "explanation": "The tuple fixes which objects it holds, not their contents. Such a tuple is also unhashable, so it cannot be a dict key."
+    },
+    {
+      "id": "python.semantics.5",
+      "topic": "semantics",
+      "type": "multipleChoice",
+      "question": "What does the `is` operator compare?",
+      "options": ["Value equality", "Type only", "Hash values", "Object identity"],
+      "answer": 3,
+      "explanation": "`is` checks whether two names point to the same object. Use `==` for values; use `is` for singletons like `None`."
+    },
+    {
+      "id": "python.data.1",
+      "topic": "data",
+      "type": "multipleChoice",
+      "question": "What is the average time complexity of `x in some_set`?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+      "answer": 0,
+      "explanation": "Sets are hash tables, so membership tests take constant time on average. That is why converting a list to a set speeds up repeated lookups.",
+      "source": "https://wiki.python.org/moin/TimeComplexity"
+    },
+    {
+      "id": "python.data.2",
+      "topic": "data",
+      "type": "multipleChoice",
+      "question": "What is the average time complexity of `x in some_list`?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
+      "answer": 2,
+      "explanation": "A list membership test scans items one by one. Inside a loop this can turn into accidental O(n^2) work.",
+      "source": "https://wiki.python.org/moin/TimeComplexity"
+    },
+    {
+      "id": "python.data.3",
+      "topic": "data",
+      "type": "trueFalse",
+      "question": "Iterating over a dict yields keys in the order they were inserted.",
+      "answer": true,
+      "explanation": "Dicts preserve insertion order as a language guarantee. Re-assigning an existing key keeps its original position.",
+      "source": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict"
+    },
+    {
+      "id": "python.data.4",
+      "topic": "data",
+      "type": "multipleChoice",
+      "question": "Which type adds and removes items at both ends in O(1)?",
+      "options": ["list", "collections.deque", "tuple", "frozenset"],
+      "answer": 1,
+      "explanation": "`list.pop(0)` and `insert(0, x)` shift every element, which is O(n). A deque is built for fast appends and pops at either end.",
+      "source": "https://docs.python.org/3/library/collections.html#collections.deque"
+    },
+    {
+      "id": "python.data.5",
+      "topic": "data",
+      "type": "trueFalse",
+      "question": "A list can be used as a dict key.",
+      "answer": false,
+      "explanation": "Dict keys must be hashable, and lists are mutable and unhashable, so this raises TypeError. Convert to a tuple first."
+    },
+    {
+      "id": "python.concurrency.1",
+      "topic": "concurrency",
+      "type": "trueFalse",
+      "question": "In default CPython builds, the GIL stops threads from running Python bytecode in parallel.",
+      "answer": true,
+      "explanation": "Only one thread runs bytecode at a time, though threads still help for I/O, which releases the GIL while waiting.",
+      "source": "https://docs.python.org/3/glossary.html#term-global-interpreter-lock"
+    },
+    {
+      "id": "python.concurrency.2",
+      "topic": "concurrency",
+      "type": "multipleChoice",
+      "question": "In default CPython, what speeds up CPU-bound pure-Python work across cores?",
+      "options": ["threading", "asyncio", "multiprocessing", "More await calls"],
+      "answer": 2,
+      "explanation": "Separate processes each have their own interpreter and GIL, so they can use several cores. Threads and asyncio share one GIL."
+    },
+    {
+      "id": "python.concurrency.3",
+      "topic": "concurrency",
+      "type": "multipleChoice",
+      "question": "What happens when a coroutine calls `time.sleep(5)` instead of `await asyncio.sleep(5)`?",
+      "options": ["Only that task pauses", "It raises a RuntimeError", "asyncio makes it awaitable", "It blocks the whole event loop"],
+      "answer": 3,
+      "explanation": "`time.sleep` blocks the thread running the loop, so no other task runs. Use `await asyncio.sleep` or move blocking work to a thread."
+    },
+    {
+      "id": "python.concurrency.4",
+      "topic": "concurrency",
+      "type": "trueFalse",
+      "question": "Calling an `async def` function without `await` runs its body right away.",
+      "answer": false,
+      "explanation": "The call only creates a coroutine object. Its body runs when awaited or scheduled as a task; otherwise you get a 'never awaited' warning."
+    },
+    {
+      "id": "python.concurrency.5",
+      "topic": "concurrency",
+      "type": "multipleChoice",
+      "question": "Which call runs several awaitables concurrently and returns their results in order?",
+      "options": ["asyncio.gather", "asyncio.Lock", "asyncio.sleep", "asyncio.Event"],
+      "answer": 0,
+      "explanation": "`gather` schedules the awaitables together and returns a list of results in the order you passed them.",
+      "source": "https://docs.python.org/3/library/asyncio-task.html#asyncio.gather"
+    },
+    {
+      "id": "python.typing.1",
+      "topic": "typing",
+      "type": "trueFalse",
+      "question": "Python enforces type hints at runtime and raises an error on a mismatch.",
+      "answer": false,
+      "explanation": "The interpreter ignores annotations when running code. Static checkers like mypy or pyright catch mismatches before runtime.",
+      "source": "https://docs.python.org/3/library/typing.html"
+    },
+    {
+      "id": "python.typing.2",
+      "topic": "typing",
+      "type": "multipleChoice",
+      "question": "What does a virtual environment isolate?",
+      "options": ["A project's installed packages", "The operating system kernel", "The project's Git history", "CPU and memory usage"],
+      "answer": 0,
+      "explanation": "A venv has its own site-packages and interpreter link, so each project can pin its own dependency versions.",
+      "source": "https://docs.python.org/3/library/venv.html"
+    },
+    {
+      "id": "python.typing.3",
+      "topic": "typing",
+      "type": "multipleChoice",
+      "question": "Which file declares a modern Python package's build system and metadata?",
+      "options": ["requirements.txt", "MANIFEST.in", "__init__.py", "pyproject.toml"],
+      "answer": 3,
+      "explanation": "pyproject.toml holds the [build-system] table and [project] metadata. requirements.txt only lists packages to install.",
+      "source": "https://packaging.python.org/en/latest/guides/writing-pyproject-toml/"
+    },
+    {
+      "id": "python.typing.4",
+      "topic": "typing",
+      "type": "multipleChoice",
+      "question": "Which type hint means a value is either a `str` or `None`?",
+      "options": ["str & None", "Optional[str]", "Nullable[str]", "Union[str]"],
+      "answer": 1,
+      "explanation": "`Optional[str]` means `str | None`. It says nothing about the argument having a default; it only allows None."
+    },
+    {
+      "id": "python.typing.5",
+      "topic": "typing",
+      "type": "trueFalse",
+      "question": "With `typing.Protocol`, a class can match a type by its methods without inheriting from it.",
+      "answer": true,
+      "explanation": "Protocols enable structural typing (static duck typing): any class with the required methods satisfies the protocol for type checkers.",
+      "source": "https://docs.python.org/3/library/typing.html#typing.Protocol"
+    },
+    {
+      "id": "python.testing.1",
+      "topic": "testing",
+      "type": "multipleChoice",
+      "question": "How does a pytest test receive a fixture's value?",
+      "options": ["Import it from conftest.py", "Call it like a function", "Name it as a test parameter", "Read it from a global"],
+      "answer": 2,
+      "explanation": "pytest matches test function parameters to fixture names and injects each fixture's return value.",
+      "source": "https://docs.pytest.org/en/stable/how-to/fixtures.html"
+    },
+    {
+      "id": "python.testing.2",
+      "topic": "testing",
+      "type": "trueFalse",
+      "question": "Fixtures defined in `conftest.py` are usable by tests in that directory without importing them.",
+      "answer": true,
+      "explanation": "pytest discovers conftest.py files automatically and makes their fixtures available to tests in that directory and below.",
+      "source": "https://docs.pytest.org/en/stable/reference/fixtures.html"
+    },
+    {
+      "id": "python.testing.3",
+      "topic": "testing",
+      "type": "multipleChoice",
+      "question": "`app.py` does `from db import connect`. To mock it for app code, what do you patch?",
+      "options": ["db.connect", "app.connect", "connect", "db.app.connect"],
+      "answer": 1,
+      "explanation": "Patch where the name is looked up. `app` holds its own reference to `connect`, so patching `db.connect` would not affect it.",
+      "source": "https://docs.python.org/3/library/unittest.mock.html#where-to-patch"
+    },
+    {
+      "id": "python.testing.4",
+      "topic": "testing",
+      "type": "multipleChoice",
+      "question": "What does using `yield` instead of `return` in a pytest fixture enable?",
+      "options": ["Teardown code after the test", "Running the test twice", "Async tests only", "Skipping the test"],
+      "answer": 0,
+      "explanation": "Code before `yield` is setup; code after it runs once the test finishes, even if it failed, so you can clean up resources.",
+      "source": "https://docs.pytest.org/en/stable/how-to/fixtures.html"
+    },
+    {
+      "id": "python.testing.5",
+      "topic": "testing",
+      "type": "multipleChoice",
+      "question": "Which pytest feature runs one test function with several sets of inputs?",
+      "options": ["pytest.raises", "monkeypatch", "@pytest.fixture(autouse=True)", "@pytest.mark.parametrize"],
+      "answer": 3,
+      "explanation": "`parametrize` generates one test case per input set, each reported separately, so one failing input does not hide the others.",
+      "source": "https://docs.pytest.org/en/stable/how-to/parametrize.html"
+    },
+    {
+      "id": "python.performance.1",
+      "topic": "performance",
+      "type": "trueFalse",
+      "question": "`''.join(parts)` is the recommended way to build a large string from many pieces.",
+      "answer": true,
+      "explanation": "Strings are immutable, so repeated `+=` can copy data again and again. `join` computes the size once and copies each piece once."
+    },
+    {
+      "id": "python.performance.2",
+      "topic": "performance",
+      "type": "multipleChoice",
+      "question": "Which avoids building a full list in memory?",
+      "options": ["A list comprehension", "A generator expression", "list(range(n))", "sorted(items)"],
+      "answer": 1,
+      "explanation": "A generator expression yields items one at a time, so `sum(x * x for x in data)` never holds all results at once."
+    },
+    {
+      "id": "python.performance.3",
+      "topic": "performance",
+      "type": "multipleChoice",
+      "question": "What does `functools.lru_cache` do?",
+      "options": ["Caches imported modules", "Writes results to disk", "Memoizes results by arguments", "Releases the GIL"],
+      "answer": 2,
+      "explanation": "It stores return values keyed by the call's arguments, which must be hashable, and evicts the least recently used entries when full.",
+      "source": "https://docs.python.org/3/library/functools.html#functools.lru_cache"
+    },
+    {
+      "id": "python.performance.4",
+      "topic": "performance",
+      "type": "trueFalse",
+      "question": "`0.1 + 0.2 == 0.3` evaluates to True.",
+      "answer": false,
+      "explanation": "Binary floats cannot represent 0.1 exactly, so the sum is 0.30000000000000004. Compare with `math.isclose` or use `Decimal`.",
+      "source": "https://docs.python.org/3/tutorial/floatingpoint.html"
+    },
+    {
+      "id": "python.performance.5",
+      "topic": "performance",
+      "type": "multipleChoice",
+      "question": "Which standard library module shows where a program spends its time?",
+      "options": ["pdb", "venv", "pickle", "cProfile"],
+      "answer": 3,
+      "explanation": "cProfile records call counts and time per function. Measure before optimizing; the slow part is often not where you expect.",
+      "source": "https://docs.python.org/3/library/profile.html"
+    }
+  ]
+}

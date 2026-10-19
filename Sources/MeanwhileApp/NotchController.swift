@@ -1,17 +1,33 @@
 import AppKit
 import DynamicNotchKit
+import MeanwhileCore
 import SwiftUI
 
 // Task 0.4 spike: compact and expanded notch states, and the focus test
 // (click an answer while the terminal keeps keyboard focus).
 
-/// A hard-coded question until the question engine exists. Written by `codex exec`
-/// in the 0.5 provider spike, from Sources/MeanwhileIPC/Spool.swift.
+/// What the notch asks: a deck card, or the spike's sample question.
 struct SpikeQuestion {
+    var deck = "Your codebase"
     let text: String
     let options: [String]
     let correct: Int
+    var explanation: String?
 
+    init(deck: String = "Your codebase", text: String, options: [String], correct: Int, explanation: String? = nil) {
+        self.deck = deck
+        self.text = text
+        self.options = options
+        self.correct = correct
+        self.explanation = explanation
+    }
+
+    init(card: Card, deck: String) {
+        self.init(deck: deck, text: card.question, options: card.choices, correct: card.correctChoice,
+                  explanation: card.explanation)
+    }
+
+    /// Written by `codex exec` in the 0.5 provider spike, from Sources/MeanwhileIPC/Spool.swift.
     static let sample = SpikeQuestion(
         text: "Why does Spool.drain rename events.ndjson before reading it?",
         options: [
@@ -52,10 +68,11 @@ final class NotchController {
         Hotkeys.shared.onAnswer = { [weak self] index in self?.answer(index, via: "hotkey ⌃⌥\(index + 1)") }
     }
 
-    /// Shows a fresh question, expanded. Called on `UserPromptSubmit` and from the menu.
-    func ask() {
+    /// Shows a fresh question, expanded. Called when a session starts working, and from the menu.
+    func ask(_ question: SpikeQuestion = .sample) {
         collapseTask?.cancel()
         transitionTask?.cancel()
+        model.question = question
         model.phase = .asking
         model.focusReport = ""
         model.turnStarted = Date()
@@ -111,7 +128,8 @@ final class NotchController {
                 : "Focus moved (panel key: \(panelIsKey), Meanwhile active: \(NSApp.isActive))"
             print("[notch spike] answer \(choice + 1) via \(source): \(model.focusReport)")
 
-            try? await Task.sleep(for: .seconds(3))
+            // Long enough to read the explanation.
+            try? await Task.sleep(for: .seconds(6))
             guard !Task.isCancelled else { return }
             guard let screen = Self.screen else { return }
             await notchView().compact(on: screen)
@@ -154,7 +172,7 @@ struct NotchExpandedView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Your codebase", systemImage: "chevron.left.forwardslash.chevron.right")
+                Label(model.question.deck, systemImage: "rectangle.stack")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -199,15 +217,29 @@ struct NotchExpandedView: View {
     @ViewBuilder private var footer: some View {
         switch model.phase {
         case .asking:
-            Text("Click an answer, or press ⌃⌥1–4")
+            Text("Click an answer, or press ⌃⌥1–\(model.question.options.count)")
                 .font(.caption).foregroundStyle(.secondary)
-        case .answered(_, let source):
+        case .answered:
+            if let explanation = model.question.explanation {
+                Text(explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            focusLine
+        }
+    }
+
+    /// The 0.4 focus check, kept visible while the notch UI is still a spike.
+    @ViewBuilder private var focusLine: some View {
+        if case .answered(_, let source) = model.phase {
             HStack(spacing: 6) {
                 Image(systemName: model.focusKept ? "keyboard" : "exclamationmark.triangle.fill")
                     .foregroundStyle(model.focusKept ? .green : .orange)
                 Text(model.focusReport.isEmpty ? "Checking focus…" : "\(model.focusReport) · \(source)")
             }
-            .font(.caption)
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
         }
     }
 }

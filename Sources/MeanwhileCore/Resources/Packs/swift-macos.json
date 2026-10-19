@@ -1,0 +1,277 @@
+{
+  "format": 1,
+  "id": "swift-macos",
+  "title": "Swift and macOS",
+  "description": "Swift, concurrency, SwiftUI, AppKit, SwiftPM and memory for Mac app work.",
+  "kind": "stack",
+  "stacks": ["swift"],
+  "topics": [
+    { "id": "language", "title": "Swift language" },
+    { "id": "concurrency", "title": "Swift concurrency" },
+    { "id": "swiftui", "title": "SwiftUI state" },
+    { "id": "appkit", "title": "AppKit and macOS apps" },
+    { "id": "spm", "title": "Swift Package Manager" },
+    { "id": "memory", "title": "Memory and ARC" }
+  ],
+  "cards": [
+    {
+      "id": "swift-macos.language.1",
+      "topic": "language",
+      "type": "multipleChoice",
+      "question": "In Swift, which of these is a value type?",
+      "options": ["A class instance", "A closure", "A struct", "An actor"],
+      "answer": 2,
+      "explanation": "Structs, enums and tuples are value types: assignment copies them. Classes, closures and actors are reference types that share one instance."
+    },
+    {
+      "id": "swift-macos.language.2",
+      "topic": "language",
+      "type": "trueFalse",
+      "question": "Copying an array to a new variable and mutating the copy also changes the original.",
+      "answer": false,
+      "explanation": "Arrays are value types. Swift uses copy-on-write, so storage is shared until one copy is mutated, then that copy gets its own storage."
+    },
+    {
+      "id": "swift-macos.language.3",
+      "topic": "language",
+      "type": "multipleChoice",
+      "question": "What does `try? load()` produce if `load()` throws?",
+      "options": ["nil", "A crash", "The thrown error as a value", "An empty default value"],
+      "answer": 0,
+      "explanation": "`try?` turns a thrown error into nil, so the result is an optional. Use `do/catch` when you need to know which error happened."
+    },
+    {
+      "id": "swift-macos.language.4",
+      "topic": "language",
+      "type": "multipleChoice",
+      "question": "What does a parameter of type `any Drawable` hold?",
+      "options": ["One type fixed by the caller at compile time", "An optional Drawable", "Only classes that subclass Drawable", "Any value whose type conforms to Drawable"],
+      "answer": 3,
+      "explanation": "`any P` is an existential: a box that can hold any conforming type, chosen at runtime. `some P` instead means one specific type fixed at compile time."
+    },
+    {
+      "id": "swift-macos.language.5",
+      "topic": "language",
+      "type": "trueFalse",
+      "question": "`guard let` unwraps an optional, and its `else` branch must exit the current scope.",
+      "answer": true,
+      "explanation": "The else branch must return, throw, break or continue. After the guard, the unwrapped value is available for the rest of the scope."
+    },
+    {
+      "id": "swift-macos.concurrency.1",
+      "topic": "concurrency",
+      "type": "multipleChoice",
+      "question": "What does an actor guarantee about its mutable state?",
+      "options": ["It is always accessed on the main thread", "Its methods never suspend", "It can't be shared between tasks", "Only one task accesses it at a time"],
+      "answer": 3,
+      "explanation": "An actor serializes access to its state. Calls from outside are async, so callers `await` while the actor finishes other work."
+    },
+    {
+      "id": "swift-macos.concurrency.2",
+      "topic": "concurrency",
+      "type": "trueFalse",
+      "question": "Code isolated to `@MainActor` runs on the main thread.",
+      "answer": true,
+      "explanation": "The main actor's executor is the main thread, so `@MainActor` is how Swift concurrency marks UI code that must run there."
+    },
+    {
+      "id": "swift-macos.concurrency.3",
+      "topic": "concurrency",
+      "type": "multipleChoice",
+      "question": "What does conforming to `Sendable` declare about a type?",
+      "options": ["It can be encoded to JSON", "It's safe to pass across concurrency domains", "It can be sent over the network", "It must stay on one thread"],
+      "answer": 1,
+      "explanation": "Sendable values can cross actor and task boundaries without data races. Value types with Sendable members and immutable final classes qualify."
+    },
+    {
+      "id": "swift-macos.concurrency.4",
+      "topic": "concurrency",
+      "type": "trueFalse",
+      "question": "A child task started with `async let` can keep running after the function that created it returns.",
+      "answer": false,
+      "explanation": "`async let` is structured concurrency: the child can't outlive its scope. If it was not awaited, it is cancelled and awaited when the scope exits."
+    },
+    {
+      "id": "swift-macos.concurrency.5",
+      "topic": "concurrency",
+      "type": "multipleChoice",
+      "question": "How does cancelling a Swift `Task` work?",
+      "options": ["The runtime stops the task at once", "Every awaiting caller crashes", "Cooperatively: the task must check for it", "It only works for detached tasks"],
+      "answer": 2,
+      "explanation": "`cancel()` sets a flag. The task's code must check `Task.isCancelled` or call `Task.checkCancellation()`; many system async APIs check it for you."
+    },
+    {
+      "id": "swift-macos.swiftui.1",
+      "topic": "swiftui",
+      "type": "multipleChoice",
+      "question": "Which property wrapper should a view use for simple state that it owns?",
+      "options": ["@Binding", "@Environment", "@Published", "@State"],
+      "answer": 3,
+      "explanation": "@State gives the view owned storage that survives re-renders. Pass it down to children as a binding with `$value`."
+    },
+    {
+      "id": "swift-macos.swiftui.2",
+      "topic": "swiftui",
+      "type": "multipleChoice",
+      "question": "What does `@Binding` give a child view?",
+      "options": ["Read-write access to state owned elsewhere", "A private copy of the parent's state", "Read-only access to the environment", "Ownership of a new model object"],
+      "answer": 0,
+      "explanation": "A binding is a reference to a source of truth owned by another view. Writes through it update the owner's state."
+    },
+    {
+      "id": "swift-macos.swiftui.3",
+      "topic": "swiftui",
+      "type": "trueFalse",
+      "question": "With an `@Observable` model, a view updates only when properties it reads in `body` change.",
+      "answer": true,
+      "explanation": "The Observation framework tracks which properties each view reads, so changes to properties a view never reads don't update it."
+    },
+    {
+      "id": "swift-macos.swiftui.4",
+      "topic": "swiftui",
+      "type": "trueFalse",
+      "question": "Changing a view's `.id(_:)` value makes SwiftUI treat it as a new view and reset its state.",
+      "answer": true,
+      "explanation": "Identity drives state. A new id means a new view, so its @State is recreated. Handy for resetting a form, costly if done by accident."
+    },
+    {
+      "id": "swift-macos.swiftui.5",
+      "topic": "swiftui",
+      "type": "multipleChoice",
+      "question": "Why create an ObservableObject with @StateObject rather than @ObservedObject?",
+      "options": ["@ObservedObject can't publish changes", "@StateObject keeps one instance across updates", "@StateObject runs on a background thread", "@ObservedObject only works with structs"],
+      "answer": 1,
+      "explanation": "View structs are recreated often. @StateObject creates the object once and keeps it; @ObservedObject is for objects owned by someone else."
+    },
+    {
+      "id": "swift-macos.appkit.1",
+      "topic": "appkit",
+      "type": "multipleChoice",
+      "question": "On macOS, which window receives keyboard events?",
+      "options": ["The main window", "The window created first", "The key window", "The window under the mouse"],
+      "answer": 2,
+      "explanation": "The key window gets keyboard input. The main window is the primary document window, which can differ when a panel is key."
+    },
+    {
+      "id": "swift-macos.appkit.2",
+      "topic": "appkit",
+      "type": "trueFalse",
+      "question": "The key window and the main window are always the same window.",
+      "answer": false,
+      "explanation": "They often match, but a utility panel such as an inspector can be key while the document window behind it stays main."
+    },
+    {
+      "id": "swift-macos.appkit.3",
+      "topic": "appkit",
+      "type": "multipleChoice",
+      "question": "Which activation policy hides an app's Dock icon but still lets it show windows?",
+      "options": ["`.regular`", "`.prohibited`", "`.background`", "`.accessory`"],
+      "answer": 3,
+      "explanation": "`.accessory` apps have no Dock icon or menu bar but can show windows. `.regular` is a normal app; `.prohibited` can't be activated."
+    },
+    {
+      "id": "swift-macos.appkit.4",
+      "topic": "appkit",
+      "type": "multipleChoice",
+      "question": "What happens if a Mac app blocks its main thread for several seconds?",
+      "options": ["The UI freezes and the spinning cursor shows", "macOS moves UI work to another thread", "The system kills the app at once", "Only animations pause"],
+      "answer": 0,
+      "explanation": "The main run loop handles events and drawing. If it can't run, nothing responds, and macOS shows the spinning wait cursor."
+    },
+    {
+      "id": "swift-macos.appkit.5",
+      "topic": "appkit",
+      "type": "trueFalse",
+      "question": "An NSPanel with the `.nonactivatingPanel` style can become key without activating its app.",
+      "answer": true,
+      "explanation": "Non-activating panels can take keyboard focus while another app stays active, which is how floating utility windows avoid stealing focus."
+    },
+    {
+      "id": "swift-macos.spm.1",
+      "topic": "spm",
+      "type": "multipleChoice",
+      "question": "In Package.swift, what is a product?",
+      "options": ["A single source file", "A library or executable clients can use", "A dependency on a remote package", "A test plan"],
+      "answer": 1,
+      "explanation": "Targets are build units. Products expose one or more targets as a library or executable that other packages or apps can depend on."
+    },
+    {
+      "id": "swift-macos.spm.2",
+      "topic": "spm",
+      "type": "multipleChoice",
+      "question": "How does code in a package target load its own bundled resources?",
+      "options": ["`Bundle.main`", "`Bundle.resources`", "`Package.bundle`", "`Bundle.module`"],
+      "answer": 3,
+      "explanation": "SPM generates `Bundle.module` for targets that declare resources. `Bundle.main` is the app's bundle, which is wrong inside a package."
+    },
+    {
+      "id": "swift-macos.spm.3",
+      "topic": "spm",
+      "type": "trueFalse",
+      "question": "Package.resolved records the exact dependency versions that SPM resolved.",
+      "answer": true,
+      "explanation": "Commit Package.resolved for apps so every machine and CI build uses the same versions. `swift package update` changes it."
+    },
+    {
+      "id": "swift-macos.spm.4",
+      "topic": "spm",
+      "type": "multipleChoice",
+      "question": "What does `.upToNextMajor(from: \"2.1.0\")` allow?",
+      "options": ["Only 2.1.0", "2.1.0 up to 2.2.0", "2.1.0 up to, but not including, 3.0.0", "Any version from 2.1.0 upward"],
+      "answer": 2,
+      "explanation": "Under semantic versioning, minor and patch releases should not break the API, so this rule accepts them but stops before 3.0.0."
+    },
+    {
+      "id": "swift-macos.spm.5",
+      "topic": "spm",
+      "type": "multipleChoice",
+      "question": "By default, where does SPM look for the sources of a target named `Core`?",
+      "options": ["`Sources/Core`", "`Core/Sources`", "`Modules/Core`", "`Targets/Core`"],
+      "answer": 0,
+      "explanation": "Each target gets its own folder under `Sources/` (test targets under `Tests/`). You can override this with the target's `path` argument."
+    },
+    {
+      "id": "swift-macos.memory.1",
+      "topic": "memory",
+      "type": "multipleChoice",
+      "question": "What creates a retain cycle under ARC?",
+      "options": ["A struct that contains another struct", "A weak reference to a freed object", "Passing a class instance to a function", "Two objects strongly referencing each other"],
+      "answer": 3,
+      "explanation": "Each object keeps the other's retain count above zero, so neither is freed. Break the cycle by making one reference weak or unowned."
+    },
+    {
+      "id": "swift-macos.memory.2",
+      "topic": "memory",
+      "type": "trueFalse",
+      "question": "A `weak` reference becomes nil automatically when its object is deallocated.",
+      "answer": true,
+      "explanation": "That's why weak references must be optional vars. Use them when the referenced object may go away first, like a delegate."
+    },
+    {
+      "id": "swift-macos.memory.3",
+      "topic": "memory",
+      "type": "multipleChoice",
+      "question": "When is `unowned` a better choice than `weak`?",
+      "options": ["When the object may be freed first", "When the object always outlives the reference", "When the reference must be optional", "When the reference points to a struct"],
+      "answer": 1,
+      "explanation": "`unowned` avoids optionals but traps if the object is gone. Use it only when the referenced object is guaranteed to live at least as long."
+    },
+    {
+      "id": "swift-macos.memory.4",
+      "topic": "memory",
+      "type": "trueFalse",
+      "question": "Swift's ARC runs a background garbage collector that finds and frees reference cycles.",
+      "answer": false,
+      "explanation": "ARC only counts references; it has no cycle collector. Cycles leak until you break them with weak or unowned references."
+    },
+    {
+      "id": "swift-macos.memory.5",
+      "topic": "memory",
+      "type": "multipleChoice",
+      "question": "Why write `[weak self]` in a closure that `self` stores?",
+      "options": ["To make the closure run faster", "To run the closure on the main thread", "To avoid a self-closure retain cycle", "To copy self into the closure"],
+      "answer": 2,
+      "explanation": "The object holds the closure strongly, so a strong capture of self would keep both alive forever. A weak capture breaks the loop."
+    }
+  ]
+}

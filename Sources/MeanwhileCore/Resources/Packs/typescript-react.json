@@ -1,0 +1,276 @@
+{
+  "format": 1,
+  "id": "typescript-react",
+  "title": "TypeScript and React",
+  "description": "JavaScript runtime, TypeScript types, React rendering and hooks, tooling and web basics.",
+  "kind": "stack",
+  "stacks": ["typescript", "javascript", "react"],
+  "topics": [
+    { "id": "runtime", "title": "JavaScript runtime" },
+    { "id": "types", "title": "TypeScript types" },
+    { "id": "rendering", "title": "React rendering" },
+    { "id": "hooks", "title": "Hooks" },
+    { "id": "tooling", "title": "Tooling" },
+    { "id": "web", "title": "Web basics" }
+  ],
+  "cards": [
+    {
+      "id": "typescript-react.runtime.1",
+      "topic": "runtime",
+      "type": "multipleChoice",
+      "question": "Same script, promise already resolved: which runs first, `.then(cb)` or `setTimeout(cb, 0)`?",
+      "options": ["The `setTimeout` callback", "Whichever line comes first", "The `.then` callback", "The order is random"],
+      "answer": 2,
+      "explanation": "Promise callbacks are microtasks, which run before the event loop takes the next task, such as a timer."
+    },
+    {
+      "id": "typescript-react.runtime.2",
+      "topic": "runtime",
+      "type": "trueFalse",
+      "question": "`NaN === NaN` is true in JavaScript.",
+      "answer": false,
+      "explanation": "NaN is not equal to anything, including itself. Use `Number.isNaN(x)` to test for it."
+    },
+    {
+      "id": "typescript-react.runtime.3",
+      "topic": "runtime",
+      "type": "multipleChoice",
+      "question": "What does `[] === []` evaluate to?",
+      "options": ["false", "true", "It throws a TypeError", "undefined"],
+      "answer": 0,
+      "explanation": "Objects and arrays compare by reference. Two separate empty arrays are different objects, so strict equality is false."
+    },
+    {
+      "id": "typescript-react.runtime.4",
+      "topic": "runtime",
+      "type": "multipleChoice",
+      "question": "What does `Promise.all` do if one of its promises rejects?",
+      "options": ["Resolves with the other results", "Waits and reports every outcome", "Retries the failed promise", "Rejects with that rejection reason"],
+      "answer": 3,
+      "explanation": "`Promise.all` fails fast. Use `Promise.allSettled` when you need every result, whether fulfilled or rejected."
+    },
+    {
+      "id": "typescript-react.runtime.5",
+      "topic": "runtime",
+      "type": "trueFalse",
+      "question": "`items.forEach(async x => await save(x))` waits for every save before the next line runs.",
+      "answer": false,
+      "explanation": "forEach ignores the promises its callback returns. Use `for...of` with await for sequential work, or `await Promise.all(items.map(save))`."
+    },
+    {
+      "id": "typescript-react.types.1",
+      "topic": "types",
+      "type": "multipleChoice",
+      "question": "What is the key difference between `unknown` and `any`?",
+      "options": ["`unknown` can only hold primitives", "`unknown` must be narrowed before use", "`any` is checked at runtime", "They are aliases for the same type"],
+      "answer": 1,
+      "explanation": "Both accept any value, but `any` turns off checking. `unknown` makes you narrow it first, so it is the safe type for untrusted data."
+    },
+    {
+      "id": "typescript-react.types.2",
+      "topic": "types",
+      "type": "trueFalse",
+      "question": "TypeScript types are erased at compile time and don't exist at runtime.",
+      "answer": true,
+      "explanation": "So a type annotation or `as User` can't validate data from an API. Use runtime checks or a schema library for that."
+    },
+    {
+      "id": "typescript-react.types.3",
+      "topic": "types",
+      "type": "trueFalse",
+      "question": "Two TypeScript types with the same shape are compatible even if they have different names.",
+      "answer": true,
+      "explanation": "TypeScript is structurally typed: compatibility depends on members, not on declared names."
+    },
+    {
+      "id": "typescript-react.types.4",
+      "topic": "types",
+      "type": "multipleChoice",
+      "question": "For `x: string | number`, which check narrows `x` to `string`?",
+      "options": ["`x instanceof String`", "`x as string`", "`Array.isArray(x)`", "`typeof x === \"string\"`"],
+      "answer": 3,
+      "explanation": "`typeof` checks the primitive type at runtime, and TypeScript narrows on it. `as` only asserts and checks nothing."
+    },
+    {
+      "id": "typescript-react.types.5",
+      "topic": "types",
+      "type": "multipleChoice",
+      "question": "What does the generic in `function first<T>(xs: T[]): T` give callers?",
+      "options": ["Arrays of strings only", "No type checking at all", "A return type that matches the items", "A return type of `any`"],
+      "answer": 2,
+      "explanation": "T is inferred from the argument, so `first([1, 2])` returns number and `first([\"a\"])` returns string, with full type checking."
+    },
+    {
+      "id": "typescript-react.rendering.1",
+      "topic": "rendering",
+      "type": "multipleChoice",
+      "question": "Why does React want a stable `key` on each list item?",
+      "options": ["To match items to their state across renders", "To sort the list", "To make items focusable", "To apply CSS faster"],
+      "answer": 0,
+      "explanation": "Keys tell React which item is which between renders, so state and DOM nodes stay with the right item when the list changes."
+    },
+    {
+      "id": "typescript-react.rendering.2",
+      "topic": "rendering",
+      "type": "trueFalse",
+      "question": "Using the array index as `key` is safe when list items can be reordered or removed.",
+      "answer": false,
+      "explanation": "When items move, index keys attach the wrong state and DOM to the wrong item. Use a stable id from the data instead."
+    },
+    {
+      "id": "typescript-react.rendering.3",
+      "topic": "rendering",
+      "type": "multipleChoice",
+      "question": "Why might `items.push(x); setItems(items)` not re-render?",
+      "options": ["`push` is asynchronous", "Same array reference, so React sees no change", "`setItems` needs a callback", "Arrays can't be stored in state"],
+      "answer": 1,
+      "explanation": "React compares state with Object.is. Create a new array, like `setItems([...items, x])`, so the change is detected."
+    },
+    {
+      "id": "typescript-react.rendering.4",
+      "topic": "rendering",
+      "type": "trueFalse",
+      "question": "By default, when a component re-renders, its child components re-render too.",
+      "answer": true,
+      "explanation": "Children re-render with their parent unless they are wrapped in `memo` and their props are unchanged."
+    },
+    {
+      "id": "typescript-react.rendering.5",
+      "topic": "rendering",
+      "type": "multipleChoice",
+      "question": "Right after `setCount(count + 1)`, what does `count` hold in the same handler?",
+      "options": ["The new value immediately", "undefined", "A promise of the new value", "The old value until the next render"],
+      "answer": 3,
+      "explanation": "State is a snapshot per render. Setting it schedules a new render; use `setCount(c => c + 1)` when the update depends on the previous value."
+    },
+    {
+      "id": "typescript-react.hooks.1",
+      "topic": "hooks",
+      "type": "multipleChoice",
+      "question": "When does a `useEffect` cleanup function run?",
+      "options": ["Only on unmount", "Before the effect re-runs and on unmount", "Only before the first render", "After every state change in the app"],
+      "answer": 1,
+      "explanation": "Cleanup undoes the previous effect, such as removing a listener, before the next run with new dependencies and when the component unmounts."
+    },
+    {
+      "id": "typescript-react.hooks.2",
+      "topic": "hooks",
+      "type": "multipleChoice",
+      "question": "In production, when does a `useEffect` with an empty dependency array run?",
+      "options": ["After every render", "Before the first render", "Once, after the first render", "Never"],
+      "answer": 2,
+      "explanation": "Empty deps means nothing can change, so it runs once after mount. In development, Strict Mode runs it twice to surface missing cleanup."
+    },
+    {
+      "id": "typescript-react.hooks.3",
+      "topic": "hooks",
+      "type": "trueFalse",
+      "question": "Hooks may be called inside an `if` block as long as the condition rarely changes.",
+      "answer": false,
+      "explanation": "React matches hooks by call order. Call them at the top level, in the same order every render, never conditionally."
+    },
+    {
+      "id": "typescript-react.hooks.4",
+      "topic": "hooks",
+      "type": "multipleChoice",
+      "question": "What does `useCallback(fn, deps)` return?",
+      "options": ["The same function until deps change", "The cached result of calling fn", "A function that runs only once", "A debounced version of fn"],
+      "answer": 0,
+      "explanation": "useCallback keeps a function's identity stable, which helps memoized children and effect deps. useMemo caches a computed value instead."
+    },
+    {
+      "id": "typescript-react.hooks.5",
+      "topic": "hooks",
+      "type": "trueFalse",
+      "question": "Leaving a used value out of a `useEffect` dependency array can make the effect read stale values.",
+      "answer": true,
+      "explanation": "The effect keeps the values from the render it was created in. List every reactive value it reads; the exhaustive-deps lint rule catches misses."
+    },
+    {
+      "id": "typescript-react.tooling.1",
+      "topic": "tooling",
+      "type": "multipleChoice",
+      "question": "In package.json, which versions does `^1.4.2` allow?",
+      "options": ["Only 1.4.2", "1.4.2 up to 1.5.0", "Any version from 1.4.2 upward", "1.4.2 up to, but not including, 2.0.0"],
+      "answer": 3,
+      "explanation": "Caret ranges accept minor and patch updates below the next major. For 0.x versions the caret is stricter, since 0.x minors may break."
+    },
+    {
+      "id": "typescript-react.tooling.2",
+      "topic": "tooling",
+      "type": "trueFalse",
+      "question": "`devDependencies` are for tools needed only to build or test, not at runtime.",
+      "answer": true,
+      "explanation": "Compilers, bundlers, linters and test runners go there. Production installs such as `npm install --omit=dev` skip them."
+    },
+    {
+      "id": "typescript-react.tooling.3",
+      "topic": "tooling",
+      "type": "multipleChoice",
+      "question": "What does `\"strict\": true` in tsconfig.json enable?",
+      "options": ["Runtime type checking", "A set of stricter checks like strictNullChecks", "ES module output", "Lint rules for formatting"],
+      "answer": 1,
+      "explanation": "`strict` turns on a family of compiler checks, including strictNullChecks and noImplicitAny. It adds no runtime checks."
+    },
+    {
+      "id": "typescript-react.tooling.4",
+      "topic": "tooling",
+      "type": "multipleChoice",
+      "question": "What does a lockfile such as package-lock.json provide?",
+      "options": ["The newest versions on every install", "Protection from vulnerable packages", "Reproducible installs of exact versions", "Faster type checking"],
+      "answer": 2,
+      "explanation": "The lockfile pins the full dependency tree. `npm ci` installs exactly what it lists, which keeps CI and teammates in sync."
+    },
+    {
+      "id": "typescript-react.tooling.5",
+      "topic": "tooling",
+      "type": "trueFalse",
+      "question": "By default, esbuild and Vite type-check TypeScript and fail the build on type errors.",
+      "answer": false,
+      "explanation": "They strip types without checking them, for speed. Run `tsc --noEmit` separately, for example in CI, to catch type errors."
+    },
+    {
+      "id": "typescript-react.web.1",
+      "topic": "web",
+      "type": "multipleChoice",
+      "question": "Who enforces CORS restrictions?",
+      "options": ["The browser", "The server", "The DNS resolver", "The CDN"],
+      "answer": 0,
+      "explanation": "The server sends CORS headers, but the browser decides whether the page's script may read the response."
+    },
+    {
+      "id": "typescript-react.web.2",
+      "topic": "web",
+      "type": "trueFalse",
+      "question": "`fetch` rejects its promise when the server returns a 404 or 500.",
+      "answer": false,
+      "explanation": "fetch rejects only on network failure. For HTTP errors it resolves; check `response.ok` or `response.status` yourself."
+    },
+    {
+      "id": "typescript-react.web.3",
+      "topic": "web",
+      "type": "multipleChoice",
+      "question": "How does `sessionStorage` differ from `localStorage`?",
+      "options": ["It's shared across all tabs", "It's cleared when the tab's session ends", "It's stored on the server", "It holds objects, not strings"],
+      "answer": 1,
+      "explanation": "sessionStorage is scoped to one tab and cleared when it closes. localStorage persists across tabs and restarts. Both store strings."
+    },
+    {
+      "id": "typescript-react.web.4",
+      "topic": "web",
+      "type": "trueFalse",
+      "question": "CORS also blocks cross-origin requests made from Node.js or curl.",
+      "answer": false,
+      "explanation": "CORS is a browser policy. Server-side code and curl ignore it, which is why a request can work in curl but fail in the browser."
+    },
+    {
+      "id": "typescript-react.web.5",
+      "topic": "web",
+      "type": "multipleChoice",
+      "question": "Which request triggers a CORS preflight OPTIONS request?",
+      "options": ["Any same-origin request", "Every cross-origin image load", "A cross-origin GET with no custom headers", "A cross-origin POST with a JSON content type"],
+      "answer": 3,
+      "explanation": "Requests beyond the 'simple' set, like a JSON Content-Type or custom headers, make the browser ask the server for permission first."
+    }
+  ]
+}

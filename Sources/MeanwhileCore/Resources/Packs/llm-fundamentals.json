@@ -1,0 +1,276 @@
+{
+  "format": 1,
+  "id": "llm-fundamentals",
+  "title": "LLM fundamentals",
+  "description": "How language models read, generate, retrieve, learn, cost, and go wrong.",
+  "kind": "generic",
+  "stacks": [],
+  "topics": [
+    { "id": "tokens", "title": "Tokens and context" },
+    { "id": "sampling", "title": "Sampling" },
+    { "id": "retrieval", "title": "Embeddings and RAG" },
+    { "id": "training", "title": "Training vs inference" },
+    { "id": "serving", "title": "Caching, latency and cost" },
+    { "id": "evaluation", "title": "Hallucination and evaluation" }
+  ],
+  "cards": [
+    {
+      "id": "llm-fundamentals.tokens.1",
+      "topic": "tokens",
+      "type": "multipleChoice",
+      "question": "Why do LLMs often miscount the letters in a word?",
+      "options": ["Their vocabulary has no single letters", "They see tokens, not individual characters", "Letters are stripped before inference", "Sampling randomizes spelling"],
+      "answer": 1,
+      "explanation": "Text is split into tokens that often span several characters, so the model never directly sees each letter it is asked to count."
+    },
+    {
+      "id": "llm-fundamentals.tokens.2",
+      "topic": "tokens",
+      "type": "trueFalse",
+      "question": "A model's context window limits prompt and generated tokens combined.",
+      "answer": true,
+      "explanation": "Input and output share one window, so a very long prompt leaves less room for the reply."
+    },
+    {
+      "id": "llm-fundamentals.tokens.3",
+      "topic": "tokens",
+      "type": "multipleChoice",
+      "question": "What does a tokenizer do?",
+      "options": ["Compresses the prompt to save bandwidth", "Encrypts text before it reaches the model", "Removes stop words like 'the' and 'a'", "Maps text to IDs from a fixed vocabulary"],
+      "answer": 3,
+      "explanation": "A tokenizer splits text into pieces from a fixed vocabulary and maps each to an integer ID. The model reads and writes these IDs."
+    },
+    {
+      "id": "llm-fundamentals.tokens.4",
+      "topic": "tokens",
+      "type": "trueFalse",
+      "question": "The model itself keeps no memory between requests; earlier turns must be in the context.",
+      "answer": true,
+      "explanation": "Model weights do not change per request. Chat apps resend (or server-side store and replay) prior turns so the model can see them."
+    },
+    {
+      "id": "llm-fundamentals.tokens.5",
+      "topic": "tokens",
+      "type": "multipleChoice",
+      "question": "Research on long prompts found models most often overlook facts placed where?",
+      "options": ["In the middle of the context", "At the very start", "At the very end", "Inside the system prompt"],
+      "answer": 0,
+      "explanation": "The 'lost in the middle' study found recall is best near the start and end of a long context and worst in the middle."
+    },
+    {
+      "id": "llm-fundamentals.sampling.1",
+      "topic": "sampling",
+      "type": "multipleChoice",
+      "question": "What does lowering the sampling temperature do?",
+      "options": ["Shortens the response", "Makes output more focused and predictable", "Reduces the cost per token", "Lets the model use more context"],
+      "answer": 1,
+      "explanation": "Lower temperature sharpens the probability distribution so likely tokens win more often. Higher temperature flattens it for more variety."
+    },
+    {
+      "id": "llm-fundamentals.sampling.2",
+      "topic": "sampling",
+      "type": "trueFalse",
+      "question": "Setting temperature to 0 guarantees identical output on every API call.",
+      "answer": false,
+      "explanation": "Temperature 0 is near-greedy, but batching, floating-point effects and infrastructure changes can still make outputs differ between calls."
+    },
+    {
+      "id": "llm-fundamentals.sampling.3",
+      "topic": "sampling",
+      "type": "multipleChoice",
+      "question": "What does top-p (nucleus) sampling do?",
+      "options": ["Always picks the p most likely tokens", "Penalizes tokens repeated p times", "Samples from top tokens summing to probability p", "Divides every logit by p"],
+      "answer": 2,
+      "explanation": "Top-p keeps the smallest set of most likely tokens whose probabilities add up to p, then samples only from that set."
+    },
+    {
+      "id": "llm-fundamentals.sampling.4",
+      "topic": "sampling",
+      "type": "multipleChoice",
+      "question": "At each step, what does the model produce before a token is chosen?",
+      "options": ["A full sentence draft", "A probability for every token in its vocabulary", "A single fixed next token", "An embedding of the whole answer"],
+      "answer": 1,
+      "explanation": "The model outputs scores over its whole vocabulary. A sampling strategy such as greedy, temperature or top-p then picks one token."
+    },
+    {
+      "id": "llm-fundamentals.sampling.5",
+      "topic": "sampling",
+      "type": "trueFalse",
+      "question": "Greedy decoding always picks the single most likely next token.",
+      "answer": true,
+      "explanation": "Greedy decoding takes the highest-probability token at each step. It is deterministic in principle but can get repetitive."
+    },
+    {
+      "id": "llm-fundamentals.retrieval.1",
+      "topic": "retrieval",
+      "type": "multipleChoice",
+      "question": "What is a text embedding?",
+      "options": ["A compressed copy of the text", "A list of the text's keywords", "The text's token IDs", "A vector that captures the text's meaning"],
+      "answer": 3,
+      "explanation": "An embedding model maps text to a vector of numbers so that texts with similar meaning land close together."
+    },
+    {
+      "id": "llm-fundamentals.retrieval.2",
+      "topic": "retrieval",
+      "type": "multipleChoice",
+      "question": "Which measure is most commonly used to compare two text embeddings?",
+      "options": ["Cosine similarity", "Edit distance", "BLEU score", "Perplexity"],
+      "answer": 0,
+      "explanation": "Cosine similarity compares the angle between two vectors, a standard way to judge how close two embeddings are in meaning."
+    },
+    {
+      "id": "llm-fundamentals.retrieval.3",
+      "topic": "retrieval",
+      "type": "trueFalse",
+      "question": "RAG retrieves relevant documents at query time and adds them to the prompt.",
+      "answer": true,
+      "explanation": "Retrieval-augmented generation searches a knowledge source for each query and places the results in context so answers can cite them."
+    },
+    {
+      "id": "llm-fundamentals.retrieval.4",
+      "topic": "retrieval",
+      "type": "multipleChoice",
+      "question": "Why split documents into chunks before embedding them for RAG?",
+      "options": ["Embedding models reject any file over 1 KB", "Chunks turn vectors into exact keyword matches", "Retrieved pieces stay focused and fit in context", "Chunking removes the need for a vector index"],
+      "answer": 2,
+      "explanation": "One vector for a whole long document blurs its meaning. Smaller chunks match queries more precisely and use less of the context window."
+    },
+    {
+      "id": "llm-fundamentals.retrieval.5",
+      "topic": "retrieval",
+      "type": "trueFalse",
+      "question": "Updating what a RAG system knows requires retraining the model.",
+      "answer": false,
+      "explanation": "You update the document store and its index. The model reads fresh content at query time, which is a key advantage of RAG."
+    },
+    {
+      "id": "llm-fundamentals.training.1",
+      "topic": "training",
+      "type": "multipleChoice",
+      "question": "What task is a base model mainly trained on during pretraining?",
+      "options": ["Following chat instructions", "Ranking answers by human preference", "Classifying documents by topic", "Predicting the next token"],
+      "answer": 3,
+      "explanation": "Pretraining teaches a model to predict the next token over huge amounts of text. Instruction tuning and preference training come later."
+    },
+    {
+      "id": "llm-fundamentals.training.2",
+      "topic": "training",
+      "type": "trueFalse",
+      "question": "Fine-tuning changes a model's weights; prompting does not.",
+      "answer": true,
+      "explanation": "Fine-tuning continues training on new examples and updates weights. A prompt only changes the input for one request."
+    },
+    {
+      "id": "llm-fundamentals.training.3",
+      "topic": "training",
+      "type": "multipleChoice",
+      "question": "In RLHF, what does the reward model learn from?",
+      "options": ["Human comparisons of model responses", "Unit test results", "The pretraining corpus", "Token counts of each answer"],
+      "answer": 0,
+      "explanation": "People rank or compare responses. A reward model learns those preferences, and reinforcement learning tunes the LLM to score well on it."
+    },
+    {
+      "id": "llm-fundamentals.training.4",
+      "topic": "training",
+      "type": "trueFalse",
+      "question": "During inference, a model learns from your conversation and keeps that knowledge for others.",
+      "answer": false,
+      "explanation": "Inference does not update weights. Anything the model 'learns' in a chat lives only in that context unless a later training run includes it."
+    },
+    {
+      "id": "llm-fundamentals.training.5",
+      "topic": "training",
+      "type": "multipleChoice",
+      "question": "Why might a model not know a library released last month?",
+      "options": ["Libraries are filtered from training data", "Its training data has a cutoff date", "It only knows standard libraries", "Its tokenizer lacks the library's name"],
+      "answer": 1,
+      "explanation": "A model only knows what was in its training data, which ends at a cutoff. Give it current docs in context to fill the gap."
+    },
+    {
+      "id": "llm-fundamentals.serving.1",
+      "topic": "serving",
+      "type": "multipleChoice",
+      "question": "What does prompt caching reuse between requests?",
+      "options": ["Previously generated answers", "Model weights stored on your device", "Processing of a repeated prompt prefix", "Your local source files"],
+      "answer": 2,
+      "explanation": "The provider stores the computed state for an identical prompt prefix, so later requests that share it are faster and cheaper to process."
+    },
+    {
+      "id": "llm-fundamentals.serving.2",
+      "topic": "serving",
+      "type": "trueFalse",
+      "question": "Prompt caching works best when stable content like instructions comes first in the prompt.",
+      "answer": true,
+      "explanation": "Caches match on an exact prefix. Put unchanging parts first and the varying parts last so the shared prefix stays as long as possible."
+    },
+    {
+      "id": "llm-fundamentals.serving.3",
+      "topic": "serving",
+      "type": "multipleChoice",
+      "question": "For a long response, what usually dominates total latency?",
+      "options": ["Network round-trip time", "Tokenizing the prompt", "Checking the API key", "Generating output tokens one at a time"],
+      "answer": 3,
+      "explanation": "Output is produced token by token, each step depending on the last. Long outputs take time roughly in proportion to their length."
+    },
+    {
+      "id": "llm-fundamentals.serving.4",
+      "topic": "serving",
+      "type": "trueFalse",
+      "question": "Hosted LLM APIs typically charge more per output token than per input token.",
+      "answer": true,
+      "explanation": "Output tokens are generated one at a time and cost more compute each, so most providers price them several times higher than input."
+    },
+    {
+      "id": "llm-fundamentals.serving.5",
+      "topic": "serving",
+      "type": "multipleChoice",
+      "question": "What does streaming a model's response mainly improve?",
+      "options": ["Time until the first words appear", "Total tokens generated", "Accuracy of the answer", "Price per token"],
+      "answer": 0,
+      "explanation": "Streaming sends tokens as they are generated. Total work is the same, but users see output almost immediately."
+    },
+    {
+      "id": "llm-fundamentals.evaluation.1",
+      "topic": "evaluation",
+      "type": "multipleChoice",
+      "question": "What is an LLM hallucination?",
+      "options": ["A refusal to answer", "Fluent output that is false or unsupported", "A response cut off by the token limit", "Output in the wrong language"],
+      "answer": 1,
+      "explanation": "Models generate plausible text, not verified facts. A hallucination reads confidently but invents APIs, citations or details."
+    },
+    {
+      "id": "llm-fundamentals.evaluation.2",
+      "topic": "evaluation",
+      "type": "trueFalse",
+      "question": "A confident tone in a model's answer is a reliable sign that it is correct.",
+      "answer": false,
+      "explanation": "Models sound equally fluent when right and wrong. Verify claims with tests, docs or sources rather than trusting tone."
+    },
+    {
+      "id": "llm-fundamentals.evaluation.3",
+      "topic": "evaluation",
+      "type": "multipleChoice",
+      "question": "What most reduces hallucinations about your own codebase?",
+      "options": ["Raising the temperature", "Asking the model to be confident", "Giving the model the relevant files", "Using a shorter system prompt"],
+      "answer": 2,
+      "explanation": "Grounding the model in the actual source lets it read real names and signatures instead of guessing from training data."
+    },
+    {
+      "id": "llm-fundamentals.evaluation.4",
+      "topic": "evaluation",
+      "type": "multipleChoice",
+      "question": "What does 'LLM-as-a-judge' mean?",
+      "options": ["A model that writes legal text", "Ranking models by parameter count", "Letting users vote on answers", "Using a model to grade model outputs"],
+      "answer": 3,
+      "explanation": "A model scores outputs against a rubric. It scales well for fuzzy criteria, but should be checked against human judgments."
+    },
+    {
+      "id": "llm-fundamentals.evaluation.5",
+      "topic": "evaluation",
+      "type": "trueFalse",
+      "question": "Scoring a prompt only on the examples you tuned it with can overstate its quality.",
+      "answer": true,
+      "explanation": "Like overfitting in ML, a prompt tweaked to pass specific cases may fail on new ones. Keep a held-out set for honest measurement."
+    }
+  ]
+}

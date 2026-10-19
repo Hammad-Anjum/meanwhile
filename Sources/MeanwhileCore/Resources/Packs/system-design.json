@@ -1,0 +1,279 @@
+{
+  "format": 1,
+  "id": "system-design",
+  "title": "System design",
+  "description": "Caching, queues, consistency, scaling, reliability and API patterns you meet in real backends.",
+  "kind": "generic",
+  "stacks": [],
+  "topics": [
+    { "id": "caching", "title": "Caching" },
+    { "id": "queues", "title": "Queues and async work" },
+    { "id": "consistency", "title": "Data and consistency" },
+    { "id": "scaling", "title": "Scaling" },
+    { "id": "reliability", "title": "Reliability" },
+    { "id": "apis", "title": "APIs" }
+  ],
+  "cards": [
+    {
+      "id": "system-design.caching.1",
+      "topic": "caching",
+      "type": "multipleChoice",
+      "question": "In the cache-aside pattern, who loads data into the cache after a miss?",
+      "options": ["The application", "The database", "The cache server itself", "The load balancer"],
+      "answer": 0,
+      "explanation": "With cache-aside (lazy loading), the app checks the cache, reads the database on a miss, then writes the result into the cache."
+    },
+    {
+      "id": "system-design.caching.2",
+      "topic": "caching",
+      "type": "trueFalse",
+      "question": "A write-through cache updates the cache and the backing store as part of the same write.",
+      "answer": true,
+      "explanation": "Write-through keeps the cache in step with the store on every write, at the cost of slower writes. Write-back defers the store write."
+    },
+    {
+      "id": "system-design.caching.3",
+      "topic": "caching",
+      "type": "multipleChoice",
+      "question": "Without explicit invalidation, what does a TTL on a cache entry put an upper bound on?",
+      "options": ["Memory used by the cache", "Number of reads per key", "How long a stale entry can be served", "Network latency to the cache"],
+      "answer": 2,
+      "explanation": "An entry expires after its TTL, so even if nobody invalidates it, stale data is served for at most that long."
+    },
+    {
+      "id": "system-design.caching.4",
+      "topic": "caching",
+      "type": "multipleChoice",
+      "question": "A hot key expires and many requests miss at once, all hitting the database. What is this called?",
+      "options": ["Cache poisoning", "Cache stampede", "Write amplification", "Split brain"],
+      "answer": 1,
+      "explanation": "A stampede (thundering herd) happens when many callers rebuild the same entry at once. Locks, request coalescing or early refresh help."
+    },
+    {
+      "id": "system-design.caching.5",
+      "topic": "caching",
+      "type": "trueFalse",
+      "question": "Adding random jitter to cache TTLs makes stampedes more likely.",
+      "answer": false,
+      "explanation": "Jitter spreads expirations out, so many keys written together do not all expire at the same moment and hit the database together."
+    },
+    {
+      "id": "system-design.queues.1",
+      "topic": "queues",
+      "type": "multipleChoice",
+      "question": "With at-least-once delivery, what must a consumer be ready to handle?",
+      "options": ["Lost messages", "Messages with no body", "Messages over a size limit", "Duplicate messages"],
+      "answer": 3,
+      "explanation": "At-least-once means a message is redelivered if the ack is lost or late, so the same message can arrive more than once."
+    },
+    {
+      "id": "system-design.queues.2",
+      "topic": "queues",
+      "type": "trueFalse",
+      "question": "An idempotent operation has the same effect whether it runs once or several times.",
+      "answer": true,
+      "explanation": "Idempotency makes retries and duplicate deliveries safe. A common technique is to record a unique key per request and skip repeats."
+    },
+    {
+      "id": "system-design.queues.3",
+      "topic": "queues",
+      "type": "multipleChoice",
+      "question": "What is a dead-letter queue for?",
+      "options": ["Holding messages that keep failing", "Storing delivered messages forever", "Speeding up urgent messages", "Encrypting messages at rest"],
+      "answer": 0,
+      "explanation": "After a message fails a set number of times, it moves to a dead-letter queue so it stops blocking work and can be inspected."
+    },
+    {
+      "id": "system-design.queues.4",
+      "topic": "queues",
+      "type": "multipleChoice",
+      "question": "Producers outpace consumers. Which mechanism signals producers to slow down?",
+      "options": ["Sharding", "Backpressure", "Write-through caching", "Read replicas"],
+      "answer": 1,
+      "explanation": "Backpressure pushes load limits upstream, for example with bounded queues that block or reject, so memory does not grow without limit."
+    },
+    {
+      "id": "system-design.queues.5",
+      "topic": "queues",
+      "type": "trueFalse",
+      "question": "If a broker guarantees at-least-once delivery, exactly-once processing comes for free.",
+      "answer": false,
+      "explanation": "At-least-once allows redelivery. Effectively-once processing needs idempotent consumers or deduplication on your side."
+    },
+    {
+      "id": "system-design.consistency.1",
+      "topic": "consistency",
+      "type": "multipleChoice",
+      "question": "What does a B-tree index on a column mainly speed up?",
+      "options": ["Inserts into the table", "Schema migrations", "Lookups and range scans on it", "Deleting every row"],
+      "answer": 2,
+      "explanation": "A B-tree keeps keys sorted, so equality lookups and range queries on that column avoid a full table scan."
+    },
+    {
+      "id": "system-design.consistency.2",
+      "topic": "consistency",
+      "type": "trueFalse",
+      "question": "Each index you add makes inserts and updates on that table a bit slower.",
+      "answer": true,
+      "explanation": "Every write must also update each affected index, so indexes trade write speed and storage for faster reads."
+    },
+    {
+      "id": "system-design.consistency.3",
+      "topic": "consistency",
+      "type": "multipleChoice",
+      "question": "You write to the primary, then read at once from an async replica. What might you get?",
+      "options": ["The latest value, always", "Stale data", "A deadlock error", "A corrupted row"],
+      "answer": 1,
+      "explanation": "Async replicas apply changes after a delay (replication lag), so a read right after a write can miss it. Read-your-writes needs routing care."
+    },
+    {
+      "id": "system-design.consistency.4",
+      "topic": "consistency",
+      "type": "multipleChoice",
+      "question": "Per the CAP theorem, during a network partition a system must trade off which two?",
+      "options": ["Latency and throughput", "Durability and isolation", "Caching and sharding", "Consistency and availability"],
+      "answer": 3,
+      "explanation": "When nodes cannot talk, a system either rejects some requests to stay consistent or answers them and risks returning stale data."
+    },
+    {
+      "id": "system-design.consistency.5",
+      "topic": "consistency",
+      "type": "trueFalse",
+      "question": "In ACID, isolation is the property that a committed transaction survives a crash.",
+      "answer": false,
+      "explanation": "That is durability. Isolation means concurrent transactions do not see each other's partial work, as set by the isolation level."
+    },
+    {
+      "id": "system-design.scaling.1",
+      "topic": "scaling",
+      "type": "multipleChoice",
+      "question": "Adding more servers behind a load balancer is called what?",
+      "options": ["Vertical scaling", "Horizontal scaling", "Sharding", "Replication lag"],
+      "answer": 1,
+      "explanation": "Horizontal scaling adds machines. Vertical scaling gives one machine more CPU or memory, which is simpler but hits a ceiling."
+    },
+    {
+      "id": "system-design.scaling.2",
+      "topic": "scaling",
+      "type": "trueFalse",
+      "question": "Horizontal scaling is easier when app servers are stateless.",
+      "answer": true,
+      "explanation": "If session and state live in a shared store, any server can handle any request, so you can add or remove servers freely."
+    },
+    {
+      "id": "system-design.scaling.3",
+      "topic": "scaling",
+      "type": "multipleChoice",
+      "question": "Why shard by a hash of the user ID?",
+      "options": ["It spreads users evenly across shards", "It makes cross-user queries cheap", "It removes the need for backups", "It keeps all data on one node"],
+      "answer": 0,
+      "explanation": "Hashing spreads keys evenly and avoids hot ranges. The cost is that queries across many users must fan out to many shards."
+    },
+    {
+      "id": "system-design.scaling.4",
+      "topic": "scaling",
+      "type": "multipleChoice",
+      "question": "When you add a node, what does consistent hashing reduce compared with `hash % N`?",
+      "options": ["Disk space per node", "Number of replicas needed", "How many keys must move", "Query latency to zero"],
+      "answer": 2,
+      "explanation": "With `hash % N`, changing N remaps most keys. Consistent hashing moves only roughly 1/N of the keys to the new node."
+    },
+    {
+      "id": "system-design.scaling.5",
+      "topic": "scaling",
+      "type": "trueFalse",
+      "question": "Sticky sessions let a load balancer send each request to any server it likes.",
+      "answer": false,
+      "explanation": "Sticky sessions pin a client to one server. That keeps local state usable but makes balancing uneven and failover harder."
+    },
+    {
+      "id": "system-design.reliability.1",
+      "topic": "reliability",
+      "type": "multipleChoice",
+      "question": "Why add random jitter to exponential retry backoff?",
+      "options": ["To make retries faster", "To guarantee delivery", "To skip the timeout", "To stop clients retrying in sync"],
+      "answer": 3,
+      "explanation": "Without jitter, clients that failed together retry together and hammer the recovering service in waves. Jitter spreads them out."
+    },
+    {
+      "id": "system-design.reliability.2",
+      "topic": "reliability",
+      "type": "trueFalse",
+      "question": "A network call to another service with no timeout can tie up a worker indefinitely.",
+      "answer": true,
+      "explanation": "A hung peer holds threads or connections forever, which can exhaust pools and spread the outage. Always set timeouts."
+    },
+    {
+      "id": "system-design.reliability.3",
+      "topic": "reliability",
+      "type": "multipleChoice",
+      "question": "What does a circuit breaker do while it is open?",
+      "options": ["Fails calls fast without trying", "Retries calls immediately", "Queues calls until memory fills", "Sends calls to the database"],
+      "answer": 0,
+      "explanation": "After repeated failures the breaker opens and rejects calls at once, giving the dependency time to recover. Later it lets a trial call through."
+    },
+    {
+      "id": "system-design.reliability.4",
+      "topic": "reliability",
+      "type": "multipleChoice",
+      "question": "Which rate-limiting algorithm allows short bursts while enforcing an average rate?",
+      "options": ["Round robin", "Two-phase commit", "Token bucket", "Leader election"],
+      "answer": 2,
+      "explanation": "Tokens refill at a steady rate up to a bucket size. Saved tokens allow a burst, but the long-run rate cannot exceed the refill rate."
+    },
+    {
+      "id": "system-design.reliability.5",
+      "topic": "reliability",
+      "type": "trueFalse",
+      "question": "It is always safe to auto-retry a payment POST that timed out.",
+      "answer": false,
+      "explanation": "The first attempt may have succeeded before the timeout, so a retry can charge twice. Use an idempotency key so the server can dedupe."
+    },
+    {
+      "id": "system-design.apis.1",
+      "topic": "apis",
+      "type": "multipleChoice",
+      "question": "Why prefer cursor pagination over offset pagination for large, changing lists?",
+      "options": ["It allows jumping to page N", "Stable pages and fast deep paging", "It needs no index", "It returns all rows at once"],
+      "answer": 1,
+      "explanation": "A cursor resumes after the last seen key, so inserts do not shift pages and the database seeks instead of skipping many rows."
+    },
+    {
+      "id": "system-design.apis.2",
+      "topic": "apis",
+      "type": "trueFalse",
+      "question": "In HTTP, PUT and DELETE are defined as idempotent, but POST is not.",
+      "answer": true,
+      "explanation": "Repeating a PUT or DELETE leaves the server in the same state. POST may create a new resource each time, so retries need care.",
+      "source": "https://www.rfc-editor.org/rfc/rfc9110#name-idempotent-methods"
+    },
+    {
+      "id": "system-design.apis.3",
+      "topic": "apis",
+      "type": "multipleChoice",
+      "question": "Which HTTP status code tells a client it is sending too many requests?",
+      "options": ["429", "503", "401", "409"],
+      "answer": 0,
+      "explanation": "429 Too Many Requests signals rate limiting, often with a Retry-After header. 503 means the service is unavailable.",
+      "source": "https://www.rfc-editor.org/rfc/rfc6585#section-4"
+    },
+    {
+      "id": "system-design.apis.4",
+      "topic": "apis",
+      "type": "multipleChoice",
+      "question": "Which change breaks existing API clients?",
+      "options": ["Adding an optional field", "Adding a new endpoint", "Adding an optional query param", "Removing a response field"],
+      "answer": 3,
+      "explanation": "Clients may read the removed field and fail. Additive, optional changes are usually backward compatible; removals need a new version."
+    },
+    {
+      "id": "system-design.apis.5",
+      "topic": "apis",
+      "type": "trueFalse",
+      "question": "gRPC runs over HTTP/2 and uses Protocol Buffers by default.",
+      "answer": true,
+      "explanation": "gRPC is an RPC framework: you define services in .proto files and get typed client and server stubs, unlike resource-oriented REST.",
+      "source": "https://grpc.io/docs/what-is-grpc/introduction/"
+    }
+  ]
+}
