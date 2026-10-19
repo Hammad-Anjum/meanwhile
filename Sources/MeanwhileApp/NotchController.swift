@@ -13,6 +13,14 @@ struct QuizQuestion: Equatable {
     let options: [String]
     let correct: Int
     var explanation: String?
+    /// Why it was picked, one short grey line under the deck chip (task 2.8).
+    var why: String?
+
+    /// A pooled codebase question (task 2.6).
+    init(pool question: PoolQuestion) {
+        self.init(cardID: question.id, deck: "Your codebase", topic: question.topic, text: question.question,
+                  options: question.options, correct: question.correct, explanation: question.explanation)
+    }
 
     init(cardID: String? = nil, deck: String, topic: String? = nil, text: String, options: [String],
          correct: Int, explanation: String? = nil) {

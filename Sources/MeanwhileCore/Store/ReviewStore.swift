@@ -121,7 +121,84 @@ public final class ReviewStore: Sendable {
                 t.add(column: "confidence", .text)
             }
         }
+        // Task 2.8: every question shown, its outcome and why it was picked, for tuning.
+        migrator.registerMigration("v3-shown") { db in
+            try db.create(table: "shown") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("cardID", .text).notNull().indexed()
+                t.column("deck", .text).notNull()
+                t.column("session", .text)
+                t.column("shownAt", .datetime).notNull().indexed()
+                /// answered · skipped · unanswered (the wait ended) · reported
+                t.column("outcome", .text)
+                t.column("latencyMs", .integer)
+                t.column("why", .text)
+                /// JSON of the score terms at the time.
+                t.column("terms", .text)
+            }
+        }
         return migrator
+    }
+
+    // MARK: Shown log (task 2.8)
+
+    public enum Outcome: String, Sendable {
+        case answered, skipped, unanswered, reported
+    }
+
+    /// Logs that a question was shown. Returns the row to finish with `finishShown`.
+    @discardableResult
+    public func logShown(cardID: String, deck: String, session: String?, why: String?,
+                         terms: [String: Double], at now: Date = Date()) throws -> Int64 {
+        let termsJSON = String(decoding: try JSONEncoder().encode(terms), as: UTF8.self)
+        return try writer.write { db in
+            try db.execute(sql: """
+                INSERT INTO shown (cardID, deck, session, shownAt, why, terms) VALUES (?, ?, ?, ?, ?, ?)
+                """, arguments: [cardID, deck, session, now, why, termsJSON])
+            return db.lastInsertedRowID
+        }
+    }
+
+    public func finishShown(_ id: Int64, outcome: Outcome, at now: Date = Date()) throws {
+        try writer.write { db in
+            try db.execute(sql: """
+                UPDATE shown SET outcome = ?,
+                  latencyMs = CAST((julianday(?) - julianday(shownAt)) * 86400000 AS INTEGER)
+                WHERE id = ? AND outcome IS NULL
+                """, arguments: [outcome.rawValue, now, id])
+        }
+    }
+
+    /// Answered and skipped counts per deck since `date`.
+    public func deckStats(since date: Date) throws -> [String: QuestionSelector.DeckStats] {
+        try writer.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT deck, SUM(outcome = 'answered') AS answered, SUM(outcome = 'skipped') AS skipped
+                FROM shown WHERE shownAt >= ? GROUP BY deck
+                """, arguments: [date])
+            return Dictionary(uniqueKeysWithValues: rows.map {
+                ($0["deck"] as String, QuestionSelector.DeckStats(answered: $0["answered"] ?? 0, skipped: $0["skipped"] ?? 0))
+            })
+        }
+    }
+
+    /// Skips per question since `date`.
+    public func skips(since date: Date) throws -> [String: Int] {
+        try writer.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT cardID, COUNT(*) AS n FROM shown WHERE outcome = 'skipped' AND shownAt >= ? GROUP BY cardID
+                """, arguments: [date])
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0["cardID"] as String, $0["n"] as Int) })
+        }
+    }
+
+    /// Share right over the last `count` answers; nil with fewer than `minimum`.
+    public func recentAccuracy(last count: Int = 20, minimum: Int = 8) throws -> Double? {
+        try writer.read { db in
+            let results = try Bool.fetchAll(db, sql: "SELECT correct FROM answer ORDER BY id DESC LIMIT ?", arguments: [count])
+            guard results.count >= minimum else { return nil }
+            return Double(results.filter { $0 }.count) / Double(results.count)
+        }
     }
 }
 

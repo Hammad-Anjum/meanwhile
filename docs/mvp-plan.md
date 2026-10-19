@@ -174,6 +174,11 @@ Progress:
   - **Validator (2.7):** the quote must appear word for word in the evidence. It also checks notch limits, 4 distinct options or True/False, one correct answer, no answer given away in the stem, and no near-duplicates.
   - **Staleness (2.7):** pooled questions store the blob of each cited file and go stale when one changes.
   - **First real run** on this repo (`meanwhile generate`): 2 post-turn and 5 primer questions plus an accurate repo card in 34 s (two codex calls).
+- 2.8 done (2026-10-19). `QuestionSelector` picks from deck cards and, for repos turned on, pooled codebase questions.
+  - **Hard rules:** no repeats in a wait; skipped twice → hidden 7 days; 30-minute gap unless due; no same deck or file twice in a row; at least one codebase question when the agent edited code.
+  - **Score:** 0.40 Need + 0.35 CodeRelevance + 0.15 DeckFit + 0.10 Novelty, plus the difficulty controller.
+  - **Tuning against the plan:** new cards get no Need, and due cards at least 0.5. That way due reviews outrank new deck cards (the 1.5 rule), while fresh codebase questions about touched code still lead.
+  - **In the notch and the log:** the grey reason line under the deck chip. Every display goes into `shown` with its outcome, latency and score terms.
 
 | # | Task | Size | Done when |
 |---|---|---|---|

@@ -21,9 +21,11 @@ public enum UnixSocket {
     private static let connectRetryDelays: [useconds_t] = [5_000, 20_000, 50_000]
 
     /// Sends `data` to the socket at `path`. Returns false if nothing is listening
-    /// or the write fails; never blocks for more than about a second.
+    /// or the write fails. Waits about a second, plus a second per 250 KB for large events
+    /// (a big edit), at most 4 s: a busy app once took longer than a flat second for 500 KB.
     public static func send(_ data: Data, to path: String) -> Bool {
-        let deadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
+        let seconds = min(4.0, 1.0 + Double(data.count) / 250_000)
+        let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(seconds * 1_000_000_000)
         var fd = connected(to: path, deadline: deadline)
         for delay in connectRetryDelays where fd.descriptor < 0 && fd.retryable {
             usleep(delay)

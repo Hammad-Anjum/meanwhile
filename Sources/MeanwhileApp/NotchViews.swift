@@ -121,6 +121,9 @@ struct QuestionView: View {
                 Spacer()
                 ProgressDots(asked: model.asked, limit: model.limit)
             }
+            if let why = state.question.why {
+                Text(why).font(.caption2).foregroundStyle(NotchColor.muted).lineLimit(1)
+            }
             if model.status == .done, state.answer == nil {
                 Text("The agent finished. Finish this one, then you’ll see your recap.")
                     .font(.caption)

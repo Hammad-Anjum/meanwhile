@@ -169,6 +169,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         log.onEvents = { [weak self] events in
             guard let self else { return }
             self.handle(events.compactMap { self.tracker.apply($0) })
+            // After the transitions, so a new turn's wait exists before its edits are noted.
+            self.quiz.note(events)
         }
         var ticks = 0
         tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -207,7 +209,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let cwd = state?.cwd ?? FileManager.default.currentDirectoryPath
                 quiz.startWait(session: transition.session, cwd: cwd)
                 notch.startTurn(agent: state?.agent ?? .claude, repo: quiz.repoName(for: cwd),
-                                since: state?.turnStartedAt ?? Date(), limit: quiz.scheduler.limitPerWait)
+                                since: state?.turnStartedAt ?? Date(), limit: quiz.limitPerWait)
             case (_, .needsInput):
                 notch.needsInput()
             case (_, .done):
