@@ -46,13 +46,15 @@ public struct RepoIndexer: Sendable {
         var files = Self.parseLsFiles(try git(root, ["ls-files", "-s", "-z"]).stdout)
         let (modified, untracked, deleted) = Self.parseStatus(status)
         for path in deleted { files[path] = nil }
-        let toHash = (modified + untracked.filter(FileKind.isDoc)).filter { files[$0] != nil || untracked.contains($0) }
+        let toHash = (modified + untracked.filter(FileKind.isDoc)).filter {
+            (files[$0] != nil || untracked.contains($0)) && !Self.isSymlink(root: root, path: $0)
+        }
         if !toHash.isEmpty {
             let hashes = try git(root, ["hash-object", "--stdin-paths"],
                                  input: toHash.joined(separator: "\n")).text.split(separator: "\n").map(String.init)
             for (path, hash) in zip(toHash, hashes) { files[path] = hash }
         }
-        files = files.filter { !FileKind.isExcludedPath($0.key) }
+        files = files.filter { !FileKind.isExcludedPath($0.key) && !Self.isSymlink(root: root, path: $0.key) }
         if files.count > limits.maxFiles {
             files = Dictionary(uniqueKeysWithValues: files.sorted { $0.key < $1.key }.prefix(limits.maxFiles).map { ($0.key, $0.value) })
         }
@@ -154,6 +156,12 @@ public struct RepoIndexer: Sendable {
         for byte in data { hash = (hash ^ UInt64(byte)) &* 0x100_0000_01b3 }
         return "\(data.count)-\(String(hash, radix: 16))"
     }
+
+    private static func isSymlink(root: String, path: String) -> Bool {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: root + "/" + path),
+              let type = attributes[.type] as? FileAttributeType else { return false }
+        return type == .typeSymbolicLink
+    }
 }
 
 public enum IndexError: Error, CustomStringConvertible {
@@ -206,6 +214,7 @@ public enum FileKind: String, Sendable {
 
     /// Paths the index never records.
     public static func isExcludedPath(_ path: String) -> Bool {
+        if path.unicodeScalars.contains(where: { $0.value == 0 || $0.value < 0x20 }) { return true }
         let name = (path as NSString).lastPathComponent
         if excludedNames.contains(name) || name.contains(".min.") || name.hasSuffix(".map") { return true }
         return path.split(separator: "/").dropLast().contains { excludedDirectories.contains(String($0)) }

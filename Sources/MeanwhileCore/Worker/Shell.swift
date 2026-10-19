@@ -16,14 +16,15 @@ public enum Shell {
     /// closed when there is none.
     public static func run(_ executable: String, _ arguments: [String], in directory: String? = nil,
                            environment: [String: String]? = nil, input: Data? = nil,
-                           timeout: TimeInterval = 30) throws -> Result {
+                           timeout: TimeInterval = 30, maximumOutputBytes: Int = 256 * 1024 * 1024) throws -> Result {
         let process = Process()
-        if executable.hasPrefix("/") {
-            process.executableURL = URL(fileURLWithPath: executable)
+        let resolvedExecutable = executable == "git" ? "/usr/bin/git" : executable
+        if resolvedExecutable.hasPrefix("/") {
+            process.executableURL = URL(fileURLWithPath: resolvedExecutable)
             process.arguments = arguments
         } else {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [executable] + arguments
+            process.arguments = [resolvedExecutable] + arguments
         }
         if let directory { process.currentDirectoryURL = URL(fileURLWithPath: directory) }
         if let environment { process.environment = environment }
@@ -39,18 +40,22 @@ public enum Shell {
         // Dedicated threads, not GCD: these block until the process exits, and with many runs
         // at once (the worker, parallel tests) blocked GCD workers exhausted its thread pool
         // and the reads that would unblock them never got a thread (found 2026-10-19).
-        let collected = Collected()
+        let collected = Collected(maximumBytes: maximumOutputBytes)
         let group = DispatchGroup()
         for (pipe, isOut) in [(out, true), (err, false)] {
             group.enter()
             Thread.detachNewThread {
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                collected.set(data, isOut: isOut)
+                while let data = try? pipe.fileHandleForReading.read(upToCount: 64 * 1024), !data.isEmpty {
+                    collected.append(data, isOut: isOut)
+                }
                 group.leave()
             }
         }
 
         try process.run()
+        // Put descendants in the same group where possible, so a timeout also kills children
+        // that inherited our stdout/stderr pipes.
+        _ = setpgid(process.processIdentifier, process.processIdentifier)
         if let stdin, let input {
             // Write on another thread: a large input can fill the pipe before the reader starts.
             Thread.detachNewThread {
@@ -63,10 +68,19 @@ public enum Shell {
         while process.isRunning {
             if Date() > deadline {
                 timedOut = true
+                kill(-process.processIdentifier, SIGTERM)
                 process.terminate()
                 break
             }
             usleep(20_000)
+        }
+        if timedOut {
+            let grace = Date().addingTimeInterval(0.5)
+            while process.isRunning && Date() < grace { usleep(20_000) }
+            if process.isRunning {
+                kill(-process.processIdentifier, SIGKILL)
+                kill(process.processIdentifier, SIGKILL)
+            }
         }
         process.waitUntilExit()
         group.wait()
@@ -78,10 +92,18 @@ public enum Shell {
         private let lock = NSLock()
         private var outData = Data()
         private var errData = Data()
+        private let maximumBytes: Int
+        init(maximumBytes: Int) { self.maximumBytes = max(0, maximumBytes) }
         var out: Data { lock.withLock { outData } }
         var err: Data { lock.withLock { errData } }
-        func set(_ data: Data, isOut: Bool) {
-            lock.withLock { if isOut { outData = data } else { errData = data } }
+        func append(_ data: Data, isOut: Bool) {
+            lock.withLock {
+                if isOut {
+                    if outData.count < maximumBytes { outData.append(data.prefix(maximumBytes - outData.count)) }
+                } else if errData.count < maximumBytes {
+                    errData.append(data.prefix(maximumBytes - errData.count))
+                }
+            }
         }
     }
 }

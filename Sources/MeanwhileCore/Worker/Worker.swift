@@ -123,15 +123,17 @@ public struct Worker: Sendable {
 
         let model = self.model ?? Providers.configured()
         let start = Date()
+        let drafts: [DraftQuestion]
         do {
-            let drafts = try QuestionGenerator(model: model).questions(from: pack)
-            try budget.record(kind.budget, provider: model.name, repo: root, session: session,
-                              succeeded: true, duration: Date().timeIntervalSince(start))
-            try library.addToPool(drafts, from: pack, kind: kind.pack.rawValue)
+            drafts = try QuestionGenerator(model: model).questions(from: pack)
         } catch {
             try budget.record(kind.budget, provider: model.name, repo: root, session: session,
                               succeeded: false, duration: Date().timeIntervalSince(start))
+            return
         }
+        try budget.record(kind.budget, provider: model.name, repo: root, session: session,
+                          succeeded: true, duration: Date().timeIntervalSince(start))
+        try library.addToPool(drafts, from: pack, kind: kind.pack.rawValue)
     }
 
     /// Once per turned-on repo: a short repo card and orientation questions from its docs.
@@ -142,16 +144,18 @@ public struct Worker: Sendable {
         else { return }
         let model = self.model ?? Providers.configured()
         let start = Date()
+        let output: Primer.Output
         do {
-            let output = try Primer(library: library, model: model).run(pack)
-            try budget.record(.primer, provider: model.name, repo: root, session: nil,
-                              succeeded: true, duration: Date().timeIntervalSince(start))
-            try library.setRepoCard(output.card, root: root)
-            try library.addToPool(output.questions, from: pack, kind: GenerationBudget.Kind.primer.rawValue)
+            output = try Primer(library: library, model: model).run(pack)
         } catch {
             try budget.record(.primer, provider: model.name, repo: root, session: nil,
                               succeeded: false, duration: Date().timeIntervalSince(start))
+            return
         }
+        try budget.record(.primer, provider: model.name, repo: root, session: nil,
+                          succeeded: true, duration: Date().timeIntervalSince(start))
+        try library.setRepoCard(Redactor.redact(output.card), root: root)
+        try library.addToPool(output.questions, from: pack, kind: GenerationBudget.Kind.primer.rawValue)
     }
 
     // MARK: Lock

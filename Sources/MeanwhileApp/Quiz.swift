@@ -17,6 +17,8 @@ final class Quiz {
     private var editedPaths: Set<String> = []
     /// The card on screen and not yet answered or skipped, and its row in the shown log.
     private var open: (id: String, shown: Int64?)?
+    /// Kept through the feedback screen so a later report updates the same display row.
+    private var shownRows: [String: Int64] = [:]
     /// The opt-in card is offered at most once per wait.
     private var offeredOptIn = false
     /// This turn's prompt, for prediction options.
@@ -39,6 +41,7 @@ final class Quiz {
         endWait()
         asked = []
         saved = [:]
+        shownRows = [:]
         editedPaths = []
         offeredOptIn = false
         offeredPrediction = false
@@ -144,7 +147,8 @@ final class Quiz {
                 questions[question.id] = QuizQuestion(pool: question)
                 candidates.append(.init(id: question.id, deck: "codebase", deckTitle: "Your codebase",
                                         file: question.sourcePath,
-                                        codeSignals: signals(question, root: repo.root, busiest: busiest)))
+                                        codeSignals: signals(question, root: repo.root, busiest: busiest),
+                                        contextScore: question.score))
             }
         }
 
@@ -163,6 +167,7 @@ final class Quiz {
         asked.append(pick.candidate)
         let shown = try? reviews?.logShown(cardID: pick.candidate.id, deck: pick.candidate.deck, session: session,
                                            why: pick.why, terms: pick.terms)
+        if let shown { shownRows[pick.candidate.id] = shown }
         open = (pick.candidate.id, shown)
         return question
     }
@@ -211,11 +216,9 @@ final class Quiz {
         } else {
             try? reviews?.suppress(cardID: id)
         }
-        if open?.id == id {
-            close(id, .reported)
-        } else if let row = try? reviews?.logShown(cardID: id, deck: question.deck, session: session, why: nil, terms: [:]) {
-            try? reviews?.finishShown(row, outcome: .reported)
-        }
+        if let answer = saved.removeValue(forKey: id) { try? reviews?.discard(answer) }
+        if let row = shownRows[id] { try? reviews?.reportShown(row) }
+        if open?.id == id { open = nil }
     }
 
     func skipped(_ question: QuizQuestion) {

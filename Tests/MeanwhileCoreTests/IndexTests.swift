@@ -71,6 +71,33 @@ private func write(_ repo: URL, _ path: String, _ content: String) throws {
     #expect(try library.blob(of: "b.swift", root: repo.path) == nil)
 }
 
+@Test func symlinkedDocsAreNeverIndexed() throws {
+    let repo = try makeGitRepo(["README.md": "# Safe"])
+    defer { try? FileManager.default.removeItem(at: repo) }
+    let outside = FileManager.default.temporaryDirectory.appendingPathComponent("secret-\(UUID().uuidString).md")
+    try Data("external secret".utf8).write(to: outside)
+    defer { try? FileManager.default.removeItem(at: outside) }
+    try FileManager.default.createSymbolicLink(at: repo.appendingPathComponent("leak.md"), withDestinationURL: outside)
+    let library = try LibraryStore(path: nil)
+    _ = try RepoIndexer(library: library).index(root: repo.path)
+    #expect(try library.blob(of: "leak.md", root: repo.path) == nil)
+}
+
+@Test func neverOptInPurgesIndexedKnowledge() throws {
+    let repo = try makeGitRepo(["README.md": "# Private\nA retained design secret.", "a.swift": "let secret = 1"])
+    defer { try? FileManager.default.removeItem(at: repo) }
+    let library = try LibraryStore(path: nil)
+    let indexed = try RepoIndexer(library: library).index(root: repo.path)
+    try DocIndexer(library: library).process(root: repo.path, newBlobs: indexed.newBlobs)
+    #expect(try library.fileCount(repoID: try library.repoID(root: repo.path)) == 2)
+    #expect(!(try library.searchDocs("retained design", root: repo.path)).isEmpty)
+
+    try library.answerOptIn(.never, root: repo.path)
+    #expect(try library.repo(root: repo.path)?.state == .never)
+    #expect(try library.fileCount(repoID: try library.repoID(root: repo.path)) == 0)
+    #expect((try library.searchDocs("retained design", root: repo.path)).isEmpty)
+}
+
 @Test func switchingBackToABranchProcessesNothingNew() throws {
     let repo = try makeGitRepo(["a.swift": "let a = 1"])
     defer { try? FileManager.default.removeItem(at: repo) }

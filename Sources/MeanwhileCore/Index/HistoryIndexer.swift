@@ -35,7 +35,8 @@ public struct HistoryIndexer: Sendable {
         if let last {
             // Only new commits, if the last one seen is still in the history.
             let ancestor = try Shell.run("git", ["-C", root, "merge-base", "--is-ancestor", last, "HEAD"])
-            if ancestor.status == 0 { range = ["\(last)..HEAD"] } else { try library.clearHistory(repoID: repoID) }
+            if ancestor.status == 0 { range = ["--max-count=\(maxCommits)", "\(last)..HEAD"] }
+            else { try library.clearHistory(repoID: repoID) }
         }
         let log = try Shell.run("git", ["-C", root, "log", "--no-merges", "--name-only",
                                         "--format=%x1e%H%x1f%ae%x1f%at%x1f%s"] + range, timeout: 120)

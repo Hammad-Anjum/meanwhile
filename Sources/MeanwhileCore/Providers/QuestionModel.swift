@@ -30,7 +30,21 @@ public enum ModelError: Error, CustomStringConvertible, Equatable {
 enum CLICall {
     /// Meanwhile's own calls must not trigger Meanwhile's hooks (task 0.6).
     static var environment: [String: String] {
-        var environment = ProcessInfo.processInfo.environment
+        let inherited = ProcessInfo.processInfo.environment
+        // The worker is launched from the user's terminal and may inherit cloud credentials,
+        // dynamic-loader injection, and repo-specific variables. Provider CLIs need only their
+        // login/config locations and ordinary process locale.
+        let allowed = ["HOME", "TMPDIR", "PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM",
+                       "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR"]
+        var environment = Dictionary(uniqueKeysWithValues: allowed.compactMap { key in
+            inherited[key].map { (key, $0) }
+        })
+        if let path = environment["PATH"] {
+            let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).standardizedFileURL.path
+            environment["PATH"] = path.split(separator: ":").map(String.init).filter {
+                $0.hasPrefix("/") && $0 != cwd && !$0.hasPrefix(cwd + "/")
+            }.joined(separator: ":")
+        }
         environment[Wire.internalCallVariable] = "1"
         return environment
     }
@@ -38,7 +52,8 @@ enum CLICall {
     /// An empty folder per call, so the CLI reads no repo instructions (AGENTS.md, CLAUDE.md).
     static func scratchDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("meanwhile-call-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
         return url
     }
 
@@ -66,18 +81,23 @@ public struct CodexCLIModel: QuestionModel {
         defer { try? FileManager.default.removeItem(at: directory) }
         let schemaFile = directory.appendingPathComponent("schema.json")
         let answerFile = directory.appendingPathComponent("answer.json")
-        try JSONSerialization.data(withJSONObject: schema).write(to: schemaFile)
+        try JSONSerialization.data(withJSONObject: schema).write(to: schemaFile, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: schemaFile.path)
 
         let result = try Shell.run(executable, [
             "exec", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only",
-            "--output-schema", schemaFile.path, "-o", answerFile.path, prompt,
-        ], in: directory.path, environment: CLICall.environment, timeout: timeout)
+            "--ignore-user-config", "--ignore-rules", "--disable", "shell_tool",
+            "--output-schema", schemaFile.path, "-o", answerFile.path, "-",
+        ], in: directory.path, environment: CLICall.environment, input: Data(prompt.utf8), timeout: timeout,
+           maximumOutputBytes: 512 * 1024)
         if result.timedOut { throw ModelError.timedOut(timeout) }
         guard result.succeeded else {
             if result.status == 127 { throw ModelError.notInstalled(executable) }
             throw ModelError.failed(String(result.stderr.suffix(300)))
         }
-        guard let answer = try? Data(contentsOf: answerFile) else { throw ModelError.badOutput("no answer file") }
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: answerFile.path),
+              let size = attributes[.size] as? NSNumber, size.intValue <= 256 * 1024,
+              let answer = try? Data(contentsOf: answerFile) else { throw ModelError.badOutput("no or oversized answer file") }
         return try CLICall.ensureObject(answer)
     }
 }
@@ -101,12 +121,14 @@ public struct ClaudeCLIModel: QuestionModel {
         defer { try? FileManager.default.removeItem(at: directory) }
         let schemaText = String(decoding: try JSONSerialization.data(withJSONObject: schema), as: UTF8.self)
         let result = try Shell.run(executable, [
-            "-p", prompt, "--output-format", "json", "--json-schema", schemaText,
+            "-p", "--output-format", "json", "--json-schema", schemaText,
             "--tools", "", "--no-session-persistence", "--model", model,
-        ], in: directory.path, environment: CLICall.environment, timeout: timeout)
+        ], in: directory.path, environment: CLICall.environment, input: Data(prompt.utf8), timeout: timeout,
+           maximumOutputBytes: 512 * 1024)
         if result.timedOut { throw ModelError.timedOut(timeout) }
         if result.status == 127 { throw ModelError.notInstalled(executable) }
-        guard let envelope = try? JSONSerialization.jsonObject(with: result.stdout) as? [String: Any] else {
+        guard result.stdout.count <= 256 * 1024,
+              let envelope = try? JSONSerialization.jsonObject(with: result.stdout) as? [String: Any] else {
             throw ModelError.failed(String(result.stderr.suffix(300)))
         }
         if envelope["is_error"] as? Bool == true {

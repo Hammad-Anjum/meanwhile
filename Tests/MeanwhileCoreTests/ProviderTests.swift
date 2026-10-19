@@ -20,14 +20,15 @@ private var schema: [String: Any] { ["type": "object"] }
 @Test func codexAnswerIsReadFromTheOutputFile() throws {
     // Writes the answer to the file after -o, after checking how it was called.
     let codex = try fakeCLI("codex", #"""
-    out=""; schema=""
+    out=""; schema=""; shell_disabled=""
     while [ $# -gt 0 ]; do
-      case "$1" in -o) out="$2"; shift;; --output-schema) schema="$2"; shift;; esac; shift
+      case "$1" in -o) out="$2"; shift;; --output-schema) schema="$2"; shift;; --disable) [ "$2" = "shell_tool" ] && shell_disabled=1; shift;; esac; shift
     done
     [ "$MEANWHILE_INTERNAL" = "1" ] || { echo "not internal" >&2; exit 3; }
     [ -z "$(ls -A . | grep -v schema.json)" ] || { echo "cwd not empty" >&2; exit 4; }
     [ -s "$schema" ] || { echo "no schema" >&2; exit 5; }
-    read -t 0 && { echo "stdin open" >&2; exit 6; }
+    [ "$shell_disabled" = "1" ] || { echo "shell tool enabled" >&2; exit 7; }
+    [ "$(cat)" = "p" ] || { echo "prompt not on stdin" >&2; exit 6; }
     echo '{"question":"Q?"}' > "$out"
     """#)
     let answer = try CodexCLIModel(executable: codex).generate(prompt: "p", schema: schema)

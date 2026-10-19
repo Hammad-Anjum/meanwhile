@@ -146,7 +146,9 @@ public struct DocIndexer: Sendable {
             data = data.dropFirst(size + 1)
         }
         for (sha, path) in blobs where contents[sha] == nil {
-            contents[sha] = try? String(contentsOfFile: root + "/" + path, encoding: .utf8)
+            let candidate = root + "/" + path
+            guard EvidenceBuilder.isRegularNonSymlink(candidate) else { continue }
+            contents[sha] = try? String(contentsOfFile: candidate, encoding: .utf8)
         }
         return contents
     }

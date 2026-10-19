@@ -36,16 +36,33 @@ extension LibraryStore {
     @discardableResult
     public func addToPool(_ drafts: [DraftQuestion], from pack: EvidencePack, kind: String, at now: Date = Date())
         throws -> (added: [PoolQuestion], rejected: [(DraftQuestion, [QuestionValidator.Problem])]) {
+        let touched = Set(pack.editedPaths)
+        if !touched.isEmpty {
+            for old in try poolQuestions(root: pack.root)
+                where touched.contains(old.sourcePath) && old.evidence.values.contains(where: { $0.hasPrefix("text:") }) {
+                try setStatus(.stale, question: old.id)
+            }
+        }
         let existing = try poolQuestions(root: pack.root, statuses: [.ready, .stale, .reported, .retired]).map(\.question)
         var added: [PoolQuestion] = [], rejected: [(DraftQuestion, [QuestionValidator.Problem])] = []
-        for draft in drafts {
-            let problems = QuestionValidator.problems(draft, sources: pack.sources, existing: existing + added.map(\.question))
-            guard problems.isEmpty else { rejected.append((draft, problems)); continue }
+        for rawDraft in drafts {
+            var draft = rawDraft
+            draft.question = Redactor.redact(draft.question)
+            draft.options = draft.options.map(Redactor.redact)
+            draft.explanation = Redactor.redact(draft.explanation)
+            draft.quote = Redactor.redact(draft.quote)
+            draft.topic = Redactor.redact(draft.topic)
+            let problems = QuestionValidator.problems(draft, sources: pack.sources, transmittedText: pack.text,
+                                                       existing: existing + added.map(\.question))
+            guard problems.isEmpty else { rejected.append((rawDraft, problems)); continue }
 
-            // Cite the current blob of every file the evidence used, so a change retires it.
+            // Bind staleness to the source that actually proves the answer. A text fingerprint
+            // covers hook-only/untracked evidence until the path enters the Git index.
             var evidence: [String: String] = [:]
-            for path in Set(pack.sources.map(\.path) + [draft.sourcePath]) {
-                if let blob = try blob(of: path, root: pack.root) { evidence[path] = blob }
+            for source in pack.sources where source.path == draft.sourcePath {
+                evidence[source.path] = try blob(of: source.path, root: pack.root)
+                    ?? source.blob
+                    ?? "text:" + RepoIndexer.fingerprint(Data(source.text.utf8))
             }
             let question = PoolQuestion(
                 id: "cb-" + RepoIndexer.fingerprint(Data((pack.root + draft.question + draft.quote).utf8)),
@@ -82,7 +99,7 @@ extension LibraryStore {
                 SELECT q.*, r.root FROM poolQuestion q JOIN repo r ON r.id = q.repoId
                 WHERE r.root = ? AND q.status IN (\(marks)) ORDER BY q.createdAt DESC
                 """, arguments: StatementArguments([root] + statuses.map(\.rawValue)))
-                .map(Self.poolQuestion)
+                .compactMap(Self.poolQuestion)
         }
     }
 
@@ -132,13 +149,15 @@ extension LibraryStore {
         try writer.read { try Date.fetchOne($0, sql: "SELECT primedAt FROM repo WHERE root = ?", arguments: [root]) != nil }
     }
 
-    private static func poolQuestion(_ row: Row) -> PoolQuestion {
-        let options = (try? JSONDecoder().decode([String].self, from: Data((row["options"] as String).utf8))) ?? []
-        let evidence = (try? JSONDecoder().decode([String: String].self, from: Data((row["evidence"] as String).utf8))) ?? [:]
+    private static func poolQuestion(_ row: Row) -> PoolQuestion? {
+        guard let status = PoolQuestion.Status(rawValue: row["status"]),
+              let options = try? JSONDecoder().decode([String].self, from: Data((row["options"] as String).utf8)),
+              let evidence = try? JSONDecoder().decode([String: String].self, from: Data((row["evidence"] as String).utf8)),
+              !options.isEmpty, options.indices.contains(row["correct"] as Int) else { return nil }
         return PoolQuestion(id: row["id"], root: row["root"], kind: row["kind"], topic: row["topic"], type: row["type"],
                             question: row["question"], options: options, correct: row["correct"],
                             explanation: row["explanation"], quote: row["quote"], sourcePath: row["sourcePath"],
                             evidence: evidence, score: row["score"], createdAt: row["createdAt"],
-                            status: PoolQuestion.Status(rawValue: row["status"]) ?? .ready)
+                            status: status)
     }
 }

@@ -233,8 +233,17 @@ final class NotchController {
 
     /// From the menu: a one-off question outside an agent turn.
     func askOnce(_ question: QuizQuestion) {
-        startTurn(agent: .claude, repo: "", since: Date(), limit: 1)
-        if case .nothing = model.content { show(question) }
+        pendingPrediction = nil
+        model.status = .working
+        model.agentName = "Meanwhile"
+        model.repo = ""
+        model.turnStarted = Date()
+        model.turnEnded = nil
+        model.results = []
+        model.asked = 0
+        model.limit = 1
+        model.content = .nothing
+        show(question)
     }
 
     // MARK: User actions
@@ -304,6 +313,7 @@ final class NotchController {
     func reportWrong() {
         guard case .question(let state) = model.content, state.question.prediction == nil else { return }
         onReport?(state.question)
+        model.results.removeAll { $0.question == state.question }
         moveOn()
     }
 

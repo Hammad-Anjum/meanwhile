@@ -21,6 +21,8 @@ import Testing
     }
     #expect(!Redactor.redact("-----BEGIN RSA PRIVATE KEY-----\nMIIEow\n-----END RSA PRIVATE KEY-----").contains("MIIEow"))
     #expect(Redactor.redact("postgres://admin:s3cretpw@db:5432/app") == "postgres://[REDACTED]@db:5432/app")
+    #expect(Redactor.redact("Authorization: Bearer real_token_123456") == "Authorization: [REDACTED]")
+    #expect(Redactor.redact(#"password = "correct horse battery staple""#) == #"password = "[REDACTED]""#)
 }
 
 @Test func assignmentsKeepTheNameAndMaskTheValue() {
@@ -33,12 +35,34 @@ import Testing
 }
 
 @Test func secretFilesAreNeverRead() {
-    for path in [".env", "config/.env.production", "certs/server.pem", "deploy/key.p12", "id_rsa", ".npmrc"] {
+    for path in [".env", "config/.env.production", "certs/server.pem", "deploy/key.p12", "id_rsa", ".npmrc",
+                 ".git-credentials", "credentials.json", "service-account.json", "kubeconfig"] {
         #expect(Redactor.isSecretFile(path), "\(path)")
     }
     for path in [".env.example", "Sources/Env.swift", "README.md", "keys.swift"] {
         #expect(!Redactor.isSecretFile(path), "\(path)")
     }
+}
+
+@Test func evidenceRejectsOutsidePathsAndSymlinkReads() throws {
+    let (repo, library) = try preparedRepo()
+    defer { try? FileManager.default.removeItem(at: repo) }
+    let outside = FileManager.default.temporaryDirectory.appendingPathComponent("outside-\(UUID().uuidString).txt")
+    try Data("TOP SECRET OUTSIDE".utf8).write(to: outside)
+    defer { try? FileManager.default.removeItem(at: outside) }
+    let link = repo.appendingPathComponent("Sources/Link.swift")
+    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+
+    let events = [
+        event(.turnStart(prompt: "edit"), repo),
+        event(.edit([FileEdit(path: repo.deletingLastPathComponent().appendingPathComponent("outside.swift").path,
+                              change: .modified, added: ["outside"])]), repo),
+        event(.edit([FileEdit(path: link.path, change: .modified, added: ["safe hook hunk"])]), repo),
+    ]
+    let pack = try #require(try EvidenceBuilder(library: library).build(kind: .live, root: repo.path, session: "s", events: events))
+    #expect(pack.editedPaths == ["Sources/Link.swift"])
+    #expect(pack.text.contains("safe hook hunk"))
+    #expect(!pack.text.contains("TOP SECRET OUTSIDE"))
 }
 
 private func event(_ kind: AgentEvent.Kind, _ root: URL) -> AgentEvent {

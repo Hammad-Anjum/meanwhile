@@ -9,7 +9,8 @@ public enum Redactor {
     public static func isSecretFile(_ path: String) -> Bool {
         let name = (path as NSString).lastPathComponent.lowercased()
         if name == ".env" || name.hasPrefix(".env.") || name.hasSuffix(".env") { return !name.hasSuffix(".example") && !name.hasSuffix(".sample") }
-        if ["id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", ".netrc", ".npmrc", ".pypirc", "credentials", ".htpasswd"].contains(name) { return true }
+        if ["id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", ".netrc", ".npmrc", ".pypirc", ".git-credentials",
+            "credentials", "credentials.json", "service-account.json", "service_account.json", "kubeconfig", ".htpasswd"].contains(name) { return true }
         return ["pem", "key", "p12", "pfx", "keystore", "jks", "mobileprovision", "p8"].contains((name as NSString).pathExtension)
     }
 
@@ -33,9 +34,17 @@ public enum Redactor {
     /// scheme://user:password@host → scheme://[REDACTED]@host. (Swift regex has no lookbehind.)
     private static let urlCredentials = #"://[^/\s:@]+:[^/\s@]+@"#
 
-    /// `password = "..."`, `API_KEY: ...`, `"client_secret": "..."`: the value is masked.
-    private static let assignment =
-        #"(?i)((?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret|auth)[A-Za-z0-9_\-]*["']?\s*[:=]\s*["']?)([^\s"',;]{6,})"#
+    private static let secretName =
+        #"(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret|auth)[A-Za-z0-9_\-]*"#
+    /// Authorization headers and quoted/unquoted secret assignments. Quoted values are
+    /// consumed whole, including spaces; otherwise `Bearer real-token` used to leak its tail.
+    private static let authorization = #"(?i)(\bauthorization\s*[:=]\s*)(?:bearer|basic|token)\s+[^\s,;]+"#
+    private static let doubleQuotedAssignment =
+        #"(?i)((?:"# + secretName + #")["']?\s*[:=]\s*")([^"\r\n]*)(")"#
+    private static let singleQuotedAssignment =
+        #"(?i)((?:"# + secretName + #")["']?\s*[:=]\s*')([^'\r\n]*)(')"#
+    private static let bareAssignment =
+        #"(?i)((?:"# + secretName + #")["']?\s*[:=]\s*)([^\s"',;]{6,})"#
 
     public static func redact(_ text: String) -> String {
         // try!: the patterns are constants, and one that fails to compile must fail the tests
@@ -45,7 +54,15 @@ public enum Redactor {
             result = result.replacing(try! Regex(pattern), with: mask)
         }
         result = result.replacing(try! Regex(urlCredentials), with: "://\(mask)@")
-        result = result.replacing(try! Regex(assignment)) { match in
+        result = result.replacing(try! Regex(authorization)) { match in
+            (match.output[1].substring ?? "") + mask
+        }
+        for pattern in [doubleQuotedAssignment, singleQuotedAssignment] {
+            result = result.replacing(try! Regex(pattern)) { match in
+                (match.output[1].substring ?? "") + mask + (match.output[3].substring ?? "")
+            }
+        }
+        result = result.replacing(try! Regex(bareAssignment)) { match in
             (match.output[1].substring ?? "") + mask
         }
         return result

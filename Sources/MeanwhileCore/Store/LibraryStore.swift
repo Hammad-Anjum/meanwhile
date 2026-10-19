@@ -91,6 +91,7 @@ public final class LibraryStore: Sendable {
             try db.execute(sql: "UPDATE repo SET state = ?, askedAt = ? WHERE root = ?",
                            arguments: [state.rawValue, now, root])
         }
+        if state == .never { try purgeKnowledge(root: root) }
     }
 
     public func repos() throws -> [Repo] {
@@ -111,6 +112,42 @@ public final class LibraryStore: Sendable {
         try noteRepo(root: root)
         try writer.write { db in
             try db.execute(sql: "UPDATE repo SET state = ? WHERE root = ?", arguments: [state.rawValue, root])
+        }
+        if state == .never { try purgeKnowledge(root: root) }
+    }
+
+    /// "Never" is a privacy boundary: remember the choice, but remove everything learned
+    /// from the repo. Shared blobs remain only while another opted-in repo references them.
+    func purgeKnowledge(root: String) throws {
+        try writer.write { db in
+            guard let repoID = try Int64.fetchOne(db, sql: "SELECT id FROM repo WHERE root = ?", arguments: [root]) else { return }
+            for table in ["poolQuestion", "fileRank", "fileHistory", "commitInfo"] {
+                try db.execute(sql: "DELETE FROM \(table) WHERE repoId = ?", arguments: [repoID])
+            }
+            try db.execute(sql: "DELETE FROM fileEntry WHERE repoId = ?", arguments: [repoID])
+
+            let orphanSHAs = try String.fetchAll(db, sql: """
+                SELECT b.sha FROM blob b LEFT JOIN fileEntry f ON f.sha = b.sha WHERE f.sha IS NULL
+                """)
+            if !orphanSHAs.isEmpty {
+                for sha in orphanSHAs {
+                    let chunks = try Row.fetchAll(db, sql: "SELECT id, trail, body FROM docChunk WHERE sha = ?", arguments: [sha])
+                    for chunk in chunks {
+                        try db.execute(sql: """
+                            INSERT INTO docChunkFts(docChunkFts, rowid, trail, body) VALUES('delete', ?, ?, ?)
+                            """, arguments: [chunk["id"] as Int64, chunk["trail"] as String, chunk["body"] as String])
+                    }
+                    try db.execute(sql: "DELETE FROM docMention WHERE chunkId IN (SELECT id FROM docChunk WHERE sha = ?)", arguments: [sha])
+                    try db.execute(sql: "DELETE FROM docChunk WHERE sha = ?", arguments: [sha])
+                    try db.execute(sql: "DELETE FROM symbolDef WHERE sha = ?", arguments: [sha])
+                    try db.execute(sql: "DELETE FROM symbolRef WHERE sha = ?", arguments: [sha])
+                    try db.execute(sql: "DELETE FROM blob WHERE sha = ?", arguments: [sha])
+                }
+            }
+            try db.execute(sql: """
+                UPDATE repo SET head = NULL, statusHash = NULL, historyHead = NULL, lastIndexedAt = NULL,
+                  card = NULL, primedAt = NULL, stacks = NULL WHERE id = ?
+                """, arguments: [repoID])
         }
     }
 

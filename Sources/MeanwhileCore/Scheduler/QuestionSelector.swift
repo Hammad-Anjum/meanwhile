@@ -12,16 +12,21 @@ public struct QuestionSelector: Sendable {
         /// The file a codebase question is about; nil for deck cards. No two in a row either.
         public let file: String?
         public let codeSignals: CodeSignals?
+        /// Evidence context score; only 4+ is strong enough for the codebase guarantee.
+        public let contextScore: Int?
 
-        public init(id: String, deck: String, deckTitle: String, file: String? = nil, codeSignals: CodeSignals? = nil) {
+        public init(id: String, deck: String, deckTitle: String, file: String? = nil,
+                    codeSignals: CodeSignals? = nil, contextScore: Int? = nil) {
             self.id = id
             self.deck = deck
             self.deckTitle = deckTitle
             self.file = file
             self.codeSignals = codeSignals
+            self.contextScore = contextScore ?? (codeSignals == nil ? nil : 4)
         }
 
         public var isCodebase: Bool { codeSignals != nil }
+        public var isStrongCodebase: Bool { isCodebase && (contextScore ?? 0) >= 4 }
     }
 
     /// What makes a codebase question relevant now, each 0–1.
@@ -109,7 +114,7 @@ public struct QuestionSelector: Sendable {
         }
         // The product's point: when the agent changed code, ask about it at least once.
         if context.agentTouchedCode, !context.askedThisWait.contains(where: \.isCodebase) {
-            let codebase = eligible.filter(\.isCodebase)
+            let codebase = eligible.filter(\.isStrongCodebase)
             if !codebase.isEmpty { eligible = codebase }
         }
 
@@ -156,7 +161,8 @@ public struct QuestionSelector: Sendable {
     /// R = (1 + t / (9 S))^-1.
     static func recall(_ review: Review, now: Date) -> Double {
         guard let shown = review.lastShown else { return 0 }
-        let stability = Spacing.intervals[min(review.step ?? 0, Spacing.intervals.count - 1)] / 86_400
+        let index = min(max(review.step ?? 0, 0), Spacing.intervals.count - 1)
+        let stability = Spacing.intervals[index] / 86_400
         let elapsed = max(0, now.timeIntervalSince(shown) / 86_400)
         return 1 / (1 + elapsed / (9 * stability))
     }

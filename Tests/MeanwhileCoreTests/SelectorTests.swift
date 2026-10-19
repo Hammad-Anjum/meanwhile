@@ -54,7 +54,7 @@ private func due(_ id: String, overdueDays: Double, step: Int = 0) -> Review {
 }
 
 @Test func atLeastOneCodebaseQuestionWhenTheAgentEdited() {
-    // Even a weak codebase question goes first once the agent edited code.
+    // A sufficiently evidenced codebase question goes first even with weak relevance signals.
     let weak = codeQuestion("weak", recency: 0, notMine: 0, hotspot: 0)
     let strongDeck = deckCard("old")
     let ctx = context {
@@ -66,6 +66,18 @@ private func due(_ id: String, overdueDays: Double, step: Int = 0) -> Review {
     var after = ctx
     after.askedThisWait = [weak]
     #expect(QuestionSelector().next(from: [strongDeck, weak], context: after)?.candidate.id == "old")
+}
+
+@Test func thinCodebaseQuestionIsNotForcedByAnEdit() {
+    let thin = QuestionSelector.Candidate(id: "thin", deck: "codebase", deckTitle: "Your codebase",
+                                          file: "A.swift", codeSignals: .init(recency: 0, hotspot: 0, notMine: 0),
+                                          contextScore: 2)
+    let dueDeck = deckCard("due", deck: "design")
+    let pick = QuestionSelector().next(from: [thin, dueDeck], context: context {
+        $0.agentTouchedCode = true
+        $0.reviews = ["due": due("due", overdueDays: 10)]
+    })
+    #expect(pick?.candidate.id == "due")
 }
 
 @Test func neverTheSameDeckOrFileTwiceInARow() {
@@ -146,4 +158,20 @@ private func due(_ id: String, overdueDays: Double, step: Int = 0) -> Review {
         try store.recordAnswer(cardID: "x\(index)", choice: 0, correct: index < 7, confidence: .fairlySure, session: nil, at: now)
     }
     #expect(try store.recentAccuracy() == 0.7)
+}
+
+@Test func reportingAfterAnswerVoidsLearningAndReusesShownRow() throws {
+    let store = try ReviewStore(path: nil)
+    let now = Date()
+    let shown = try store.logShown(cardID: "bad", deck: "codebase", session: "s", why: nil, terms: [:], at: now)
+    let answer = try store.recordAnswer(cardID: "bad", choice: 0, correct: true, confidence: .fairlySure,
+                                        session: "s", at: now.addingTimeInterval(1))
+    try store.finishShown(shown, outcome: .answered, at: now.addingTimeInterval(1))
+    try store.discard(answer)
+    try store.reportShown(shown, at: now.addingTimeInterval(2))
+
+    #expect(try store.answerCount() == 0)
+    #expect(try store.reviews()["bad"] == answer.before)
+    let stats = try store.deckStats(since: now.addingTimeInterval(-1))
+    #expect(stats["codebase"]?.answered == 0 && stats["codebase"]?.skipped == 0)
 }

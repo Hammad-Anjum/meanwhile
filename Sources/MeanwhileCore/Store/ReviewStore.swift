@@ -73,6 +73,15 @@ public final class ReviewStore: Sendable {
         }
     }
 
+    /// Removes an answer that the user subsequently reported as an invalid question and
+    /// restores spacing exactly to its pre-answer state.
+    public func discard(_ answer: RecordedAnswer) throws {
+        try writer.write { db in
+            try ReviewRecord(answer.before).save(db)
+            try db.execute(sql: "DELETE FROM answer WHERE id = ?", arguments: [answer.answerID])
+        }
+    }
+
     /// The confidence stored with an answer; for tests and stats.
     public func confidence(ofAnswer id: Int64) throws -> Confidence? {
         try writer.read {
@@ -173,6 +182,18 @@ public final class ReviewStore: Sendable {
                   latencyMs = CAST((julianday(?) - julianday(shownAt)) * 86400000 AS INTEGER)
                 WHERE id = ? AND outcome IS NULL
                 """, arguments: [outcome.rawValue, now, id])
+        }
+    }
+
+    /// Reporting can happen from the answer feedback screen, after the row was temporarily
+    /// marked answered. The report is the final outcome for that single display.
+    public func reportShown(_ id: Int64, at now: Date = Date()) throws {
+        try writer.write { db in
+            try db.execute(sql: """
+                UPDATE shown SET outcome = ?,
+                  latencyMs = CAST((julianday(?) - julianday(shownAt)) * 86400000 AS INTEGER)
+                WHERE id = ?
+                """, arguments: [Outcome.reported.rawValue, now, id])
         }
     }
 

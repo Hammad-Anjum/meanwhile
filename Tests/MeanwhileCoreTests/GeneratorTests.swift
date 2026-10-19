@@ -80,6 +80,14 @@ private let sources = [EvidencePack.Source(path: "Sources/App.swift", blob: nil,
     #expect(problems(draft(quote: "")).contains(.quoteMissing))
     #expect(problems(draft(question: "Is the window 60 seconds long?")).contains(.answerInQuestion))
     #expect(problems(draft(), existing: ["How long is the rate-limit window?"]).contains(.duplicate))
+    #expect(problems(draft(type: "essay")).contains(.badType))
+    var wrongSource = draft()
+    wrongSource.sourcePath = "Sources/Other.swift"
+    #expect(problems(wrongSource).contains(.badSource))
+    let operatorSource = [EvidencePack.Source(path: "a.swift", blob: nil, text: "if userCount == maxUsers { return }")]
+    var operatorDraft = draft(quote: "if userCount != maxUsers")
+    operatorDraft.sourcePath = "a.swift"
+    #expect(QuestionValidator.problems(operatorDraft, sources: operatorSource).contains(.quoteNotFound))
 }
 
 // MARK: - Pool and staleness

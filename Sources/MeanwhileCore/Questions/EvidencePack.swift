@@ -67,11 +67,13 @@ public struct EvidenceBuilder: Sendable {
 
     /// The pack for the turn in `events` (the session's events since its last prompt).
     public func build(kind: EvidencePack.Kind, root: String, session: String, events: [AgentEvent]) throws -> EvidencePack? {
-        let turn = Self.currentTurn(events)
+        // Session identifiers are not a repository boundary: an agent can change cwd in one
+        // session. Never mix another repo's prompt, summary, or hunks into this pack.
+        let turn = Self.currentTurn(events.filter { Self.directory($0.cwd, isInside: root) })
         let edits = turn.flatMap { event -> [FileEdit] in
             if case .edit(let edits) = event.kind { return edits }
             return []
-        }
+        }.filter { Self.relativePath($0.path, root: root) != nil }
         guard !edits.isEmpty else { return nil }
 
         let readable = (try library.repo(root: root))?.accessError == nil && FileManager.default.isReadableFile(atPath: root)
@@ -87,17 +89,18 @@ public struct EvidenceBuilder: Sendable {
         // Edits, with the code around them when the file can be read.
         var editText = ""
         for path in editedPaths.prefix(budget.maxFiles) {
-            let fileEdits = edits.filter { Self.relative($0.path, root) == path }
+            let fileEdits = edits.filter { Self.relativePath($0.path, root: root) == path }
             var block = "### \(path)\n"
             if Redactor.isSecretFile(path) {
                 block += "(secret file: contents not included)\n"
             } else {
-                let hunk = Self.render(fileEdits)
+                let hunk = Redactor.redact(Self.render(fileEdits))
                 block += hunk
                 sources.append(.init(path: path, blob: nil, text: hunk))
                 if readable, let around = codeAround(fileEdits, path: path, root: root) {
-                    block += "\nCurrent code around the change (lines \(around.lines.lowerBound)–\(around.lines.upperBound)):\n\(around.text)\n"
-                    sources.append(.init(path: path, blob: try library.blob(of: path, root: root), text: around.text))
+                    let safeAround = Redactor.redact(around.text)
+                    block += "\nCurrent code around the change (lines \(around.lines.lowerBound)–\(around.lines.upperBound)):\n\(safeAround)\n"
+                    sources.append(.init(path: path, blob: try library.blob(of: path, root: root), text: safeAround))
                 }
             }
             let remaining = budget.editsAndCode - editText.count
@@ -121,13 +124,14 @@ public struct EvidenceBuilder: Sendable {
         if readable {
             var seen = Set<String>()
             let prompt = sections.first { $0.title == "The user asked the agent" }?.text ?? ""
-            let docs = try library.docChunks(mentioning: editedPaths, root: root, limit: 4)
+            let docs = try library.docChunks(mentioning: Array(editedPaths.prefix(budget.maxFiles)), root: root, limit: 4)
                 + (prompt.isEmpty ? [] : try library.searchDocs(prompt, root: root, limit: 2))
             for doc in docs where seen.insert(doc.sha + doc.trail).inserted {
                 let block = "### \(doc.path) › \(doc.trail)\n\(doc.body)\n"
                 guard docsText.count + block.count <= budget.docsAndHistory else { break }
-                docsText += Redactor.redact(block)
-                sources.append(.init(path: doc.path, blob: doc.sha, text: doc.body))
+                let safeBlock = Redactor.redact(block)
+                docsText += safeBlock
+                sources.append(.init(path: doc.path, blob: doc.sha, text: Redactor.redact(doc.body)))
                 docHits += 1
             }
             for path in editedPaths.prefix(2) {
@@ -149,7 +153,7 @@ public struct EvidenceBuilder: Sendable {
 
         // Other files the agent read: callers and callees, likely.
         let reads = Set(turn.compactMap { event -> String? in
-            if case .read(let path) = event.kind { return Self.relative(path, root) }
+            if case .read(let path) = event.kind { return Self.relativePath(path, root: root) }
             return nil
         }).subtracting(editedPaths)
         if !reads.isEmpty {
@@ -182,13 +186,28 @@ public struct EvidenceBuilder: Sendable {
     /// Edited paths relative to the repo, most-changed first.
     static func rankedPaths(_ edits: [FileEdit], root: String) -> [String] {
         var weight: [String: Int] = [:]
-        for edit in edits { weight[relative(edit.path, root), default: 0] += edit.added.count + edit.removed.count + 1 }
+        for edit in edits {
+            guard let path = relativePath(edit.path, root: root) else { continue }
+            weight[path, default: 0] += edit.added.count + edit.removed.count + 1
+        }
         return weight.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)
     }
 
-    static func relative(_ path: String, _ root: String) -> String {
-        let prefix = root.hasSuffix("/") ? root : root + "/"
-        return path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
+    /// A lexical containment check for untrusted hook paths. Disk reads additionally resolve
+    /// symlinks below, but this also keeps outside-root hunks out of model prompts.
+    static func relativePath(_ path: String, root: String) -> String? {
+        guard !path.isEmpty, !path.unicodeScalars.contains(where: { $0.value == 0 || $0.value < 0x20 }) else { return nil }
+        let rootURL = URL(fileURLWithPath: root).standardizedFileURL
+        let candidate = (path.hasPrefix("/") ? URL(fileURLWithPath: path) : rootURL.appendingPathComponent(path)).standardizedFileURL
+        let prefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        guard candidate.path.hasPrefix(prefix) else { return nil }
+        return String(candidate.path.dropFirst(prefix.count))
+    }
+
+    static func directory(_ path: String, isInside root: String) -> Bool {
+        let rootPath = URL(fileURLWithPath: root).standardizedFileURL.path
+        let candidate = URL(fileURLWithPath: path).standardizedFileURL.path
+        return candidate == rootPath || candidate.hasPrefix(rootPath.hasSuffix("/") ? rootPath : rootPath + "/")
     }
 
     static func render(_ edits: [FileEdit]) -> String {
@@ -202,7 +221,12 @@ public struct EvidenceBuilder: Sendable {
 
     /// Lines around where the added text now sits in the file on disk.
     func codeAround(_ edits: [FileEdit], path: String, root: String) -> (text: String, lines: ClosedRange<Int>)? {
-        guard let content = try? String(contentsOfFile: root + "/" + path, encoding: .utf8) else { return nil }
+        guard let relative = Self.relativePath(path, root: root) else { return nil }
+        let rootURL = URL(fileURLWithPath: root).resolvingSymlinksInPath().standardizedFileURL
+        let fileURL = rootURL.appendingPathComponent(relative).resolvingSymlinksInPath().standardizedFileURL
+        let prefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        guard fileURL.path.hasPrefix(prefix), Self.isRegularNonSymlink(rootURL.appendingPathComponent(relative).path),
+              let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return nil }
         let lines = content.split(separator: "\n", omittingEmptySubsequences: false)
         guard let anchor = edits.lazy.flatMap(\.added).first(where: { $0.trimmingCharacters(in: .whitespaces).count > 3 }),
               let index = lines.firstIndex(where: { $0.contains(anchor) }) else { return nil }
@@ -212,6 +236,12 @@ public struct EvidenceBuilder: Sendable {
         let text = lines[start...end].enumerated()
             .map { "\(start + $0.offset + 1)  \($0.element)" }.joined(separator: "\n")
         return (String(text.prefix(6_000)), (start + 1)...(end + 1))
+    }
+
+    static func isRegularNonSymlink(_ path: String) -> Bool {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+              let type = attributes[.type] as? FileAttributeType else { return false }
+        return type == .typeRegular
     }
 
     /// Cuts sections from the end until the pack fits.
