@@ -155,6 +155,16 @@ Progress:
   - **Git history:** the last 180 days or 5,000 commits once, then only new commits. Per file: commit count, how many were yours ("not yours" share), and last change. Commit subjects are kept as "why" evidence.
   - **Speed:** on the 50,000-file repo, 2,500 docs chunk in 0.43 s, history takes 0.44 s, and a search answers in 4 ms.
   - **Fixed on the way:** `Shell.run` could deadlock when many ran at once (pipe reads used the shared thread pool), and full-text search never matched (words became arrays of characters).
+- 2.5 done (2026-10-19). `EvidenceBuilder` makes a pack of at most 6,000 tokens (24,000 characters) for a turn.
+  - **What goes in:**
+    - the prompt
+    - the edit hunks, with about 20 lines of current code around each (line-numbered)
+    - the agent's summary (post-turn only)
+    - docs that mention the edited files or match the prompt, and recent commit subjects
+    - other files the agent read
+  - **Context score:** each pack gets the score from question-engine.md.
+  - **Secrets:** `Redactor` never reads secret files (`.env`, keys, certificates) and masks provider keys, tokens, JWTs, URL passwords and `password = …` style values.
+  - **Fallback:** if the repo can't be read, the pack uses only the hunks from the hook events.
 
 | # | Task | Size | Done when |
 |---|---|---|---|
