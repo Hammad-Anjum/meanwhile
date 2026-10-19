@@ -47,7 +47,8 @@ public struct SessionTracker: Sendable {
         /// How long `needsInput` lasts without a follow-up event. Claude Code sends nothing when
         /// the user approves a prompt, only when the approved tool finishes, which can take
         /// minutes; so the attention state is a short signal, not a wait for the next event.
-        public var needsInputLinger: TimeInterval = 20
+        /// 5 s after live testing: 20 s felt like the question was gone.
+        public var needsInputLinger: TimeInterval = 5
         /// How long `done` lasts before the session counts as idle.
         public var doneLinger: TimeInterval = 60
         /// A working session with no events this long is assumed dead and set idle.

@@ -48,7 +48,7 @@ Adapters turn each payload into:
 
 Implemented in `Sources/MeanwhileCore/Events` (task 1.1) as `AgentEvent`, with `ClaudeAdapter` and `CodexAdapter`. Notes from running them on real sessions:
 - `permission.request` is not `needs.input`. Claude Code sends `PermissionRequest` even when auto mode approves the call. Claude's `needs.input` comes from `Notification` with `notification_type` `permission_prompt` or `idle_prompt`. Codex has no `Notification` hook, so the session tracker has to infer waiting from timing.
-- Claude Code sends nothing when the user approves a permission prompt; the next event is the approved tool's `PostToolUse`, which can come minutes later. So `needs.input` is a short attention signal: the tracker returns to working after 20 s (seen 2026-10-19).
+- Claude Code sends nothing when the user approves a permission prompt; the next event is the approved tool's `PostToolUse`, which can come minutes later. So `needs.input` is a short attention signal: the tracker returns to working after 5 s (seen 2026-10-19; 20 s felt too long in testing).
 - Claude Code sends an `idle_prompt` notification after `Stop` once the session sits idle. That means "waiting for the next prompt", not "blocked mid-turn".
 - Shell commands that view files (`cat`, `head`, `tail`, `nl`, `sed -n`, also inside `bash -lc`) also produce `tool.read` events. Both agents read this way more often than through a Read tool.
 - `agent.thought` is not produced yet; it needs the transcript tailer (Phase 4).

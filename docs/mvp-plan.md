@@ -115,9 +115,11 @@ These find the expensive surprises first.
 Scope changed 2026-10-19: Codex moved here from Phase 4 because it is the default provider; starter cards ship without a hand review.
 
 Progress (2026-10-19): all seven tasks built. First live test of 1.6: the notch looks good. It showed three bugs, now fixed:
-- "Needs you" stuck through long approved commands; it now fades after 20 s.
+- "Needs you" stuck through long approved commands; it now fades after 5 s.
 - Right answers were lost when "needs you" came before the confidence pick; answers are now saved on click.
 - The notch moved on by itself; it is now static.
+
+Second test: every answer saved through four permission prompts. Then trimmed: "needs you" fades after 5 s instead of 20 s, and the explanatory captions under the confidence buttons and in the recap are gone.
 
 Still open: a second look at 1.6, and a real run of `meanwhile setup` (1.7).
 

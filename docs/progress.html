@@ -118,7 +118,7 @@ flowchart LR
     LOG --> REC[(debug/events.ndjson)]
     AD[Agent adapters<br/>Claude · Codex → AgentEvent]
     STORE[(Event store · SQLite<br/>raw lines + events, 30 days)]
-    SESS[Session tracker<br/>idle · working · needs input · done<br/>needs input fades after 20 s]
+    SESS[Session tracker<br/>idle · working · needs input · done<br/>needs input fades after 5 s]
     QE[Question engine]:::planned
     SCH[Scheduler<br/>due → new → rest · 3 per wait]
     NOTCH[Notch UI<br/>compact: timer · count · needs you · done<br/>expanded: question · feedback · confidence · recap<br/>static: moves on only when you pick Next]
@@ -311,6 +311,7 @@ flowchart TB
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Second live test: all answers saved through four permission prompts. Then trimmed: 'Needs you' fades after 5 s (was 20 s), and the captions above the confidence buttons and at the end of the recap are removed.</td><td>High-level label updated (no snapshot: wording only)</td></tr>
   <tr><td>2026-10-19</td><td>Live-test fixes: (1) 'Needs you' fades back after 20 s, because Claude Code sends no event when you approve a prompt. (2) Answers are saved the moment you click; a later confidence pick corrects the same answer. Before, a right answer interrupted by 'needs you' was lost, so the recap showed 0 of 1 after 3 answers. (3) The notch is static: nothing moves on by a timer; Next or ⌃⌥↩ does. (4) 'Needs you' keeps what was on screen.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>1.7 built: <code>meanwhile setup</code> (with <code>--dry-run</code>, <code>--yes</code>, <code>--agents</code>, <code>--no-start</code>) and <code>meanwhile uninstall</code>. Dry run checked against the real <code>~/.claude/settings.json</code> without writing.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>1.6 built: notch states from the mockup, three confidence levels (Guessed holds the interval, Fairly sure +1, Knew it +2), recap with when each card comes back, needs-you state instead of hiding. Event Log no longer opens at launch (<code>meanwhile run --show-log</code>).</td><td>Both updated; previous snapshot saved</td></tr>

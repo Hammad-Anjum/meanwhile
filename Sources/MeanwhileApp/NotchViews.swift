@@ -171,9 +171,6 @@ struct QuestionView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if answer.correct {
-                    Text("How sure were you? This sets when it comes back.")
-                        .font(.caption)
-                        .foregroundStyle(NotchColor.muted)
                     HStack(spacing: 6) {
                         ForEach(Array(Confidence.allCases.enumerated()), id: \.offset) { index, level in
                             ConfidenceButton(index: index, level: level, chosen: state.confidence) {
@@ -316,11 +313,6 @@ struct RecapView: View {
                     Spacer()
                     Text(item.comesBack).font(.caption).foregroundStyle(NotchColor.muted)
                 }
-            }
-            if model.results.contains(where: { !$0.correct }) {
-                Text("Missed questions come back tomorrow, and keep coming back until they stick.")
-                    .font(.caption)
-                    .foregroundStyle(NotchColor.muted)
             }
         }
     }

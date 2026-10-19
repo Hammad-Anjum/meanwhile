@@ -47,8 +47,8 @@ private func phase(_ tracker: SessionTracker, _ session: String = "s") -> Sessio
     var tracker = SessionTracker()
     tracker.apply(event(prompt))
     tracker.apply(event(.needsInput(reason: "permission_prompt"), at: 6))
-    #expect(tracker.tick(now: t0.addingTimeInterval(6 + 19)).isEmpty)
-    #expect(tracker.tick(now: t0.addingTimeInterval(6 + 20)).map { [$0.from, $0.to] } == [[.needsInput, .working]])
+    #expect(tracker.tick(now: t0.addingTimeInterval(6 + 4)).isEmpty)
+    #expect(tracker.tick(now: t0.addingTimeInterval(6 + 5)).map { [$0.from, $0.to] } == [[.needsInput, .working]])
     // The command's PostToolUse finally arrives: already working, so no transition.
     #expect(tracker.apply(event(toolCall, at: 96)) == nil)
 }
