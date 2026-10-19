@@ -12,9 +12,11 @@ public enum Shell {
         public var text: String { String(decoding: stdout, as: UTF8.self) }
     }
 
-    /// Runs `executable` (an absolute path, or a name found on PATH) with stdin closed.
+    /// Runs `executable` (an absolute path, or a name found on PATH). Stdin is `input`, or
+    /// closed when there is none.
     public static func run(_ executable: String, _ arguments: [String], in directory: String? = nil,
-                           environment: [String: String]? = nil, timeout: TimeInterval = 30) throws -> Result {
+                           environment: [String: String]? = nil, input: Data? = nil,
+                           timeout: TimeInterval = 30) throws -> Result {
         let process = Process()
         if executable.hasPrefix("/") {
             process.executableURL = URL(fileURLWithPath: executable)
@@ -30,7 +32,8 @@ public enum Shell {
         process.standardOutput = out
         process.standardError = err
         // Agent CLIs wait forever on an open stdin pipe (found in the 0.5 spike).
-        process.standardInput = FileHandle.nullDevice
+        let stdin = input.map { _ in Pipe() }
+        process.standardInput = stdin ?? FileHandle.nullDevice
 
         // Read both pipes while the process runs, so a large output can't fill a pipe and stall it.
         let collected = Collected()
@@ -45,6 +48,13 @@ public enum Shell {
         }
 
         try process.run()
+        if let stdin, let input {
+            // Write on another thread: a large input can fill the pipe before the reader starts.
+            DispatchQueue.global().async {
+                stdin.fileHandleForWriting.write(input)
+                try? stdin.fileHandleForWriting.close()
+            }
+        }
         let deadline = Date().addingTimeInterval(timeout)
         var timedOut = false
         while process.isRunning {

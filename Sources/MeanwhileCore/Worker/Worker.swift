@@ -58,7 +58,15 @@ public struct Worker: Sendable {
             try GenerationBudget(library: library).turnStarted(session: session)
         }
         let root = StackDetector.repoRoot(for: request.directory)
-        try library.noteRepo(root: root)
+        let repo = try library.noteRepo(root: root)
+        // Repos turned on get the full index; others only what the opt-in card needs.
+        if repo.state == .on, (try? RepoIndexer(library: library).index(root: root)) != nil {
+            try library.recordStacks(StackDetector.stacks(inRepo: root), root: root)
+            try library.writer.write { db in
+                try db.execute(sql: "UPDATE repo SET accessError = NULL WHERE root = ?", arguments: [root])
+            }
+            return
+        }
         let listing = try? Shell.run("git", ["-C", root, "ls-files", "-z"], timeout: 30)
         if let listing, listing.succeeded {
             let count = listing.stdout.split(separator: 0).count

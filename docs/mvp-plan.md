@@ -144,6 +144,12 @@ Progress:
 - 2.0 done (2026-10-19). `meanwhile-hook` starts `meanwhile work` detached on turn start, edits and turn end, and the worker read a repo under `~/Desktop`. Requests go through a queue in `library.sqlite`, and one worker at a time works through it. The hook-only fallback is built with the evidence packs (2.5), using the access error the worker records.
 - 2.1 done (2026-10-19). `QuestionModel` with `codex exec` (default) and `claude -p`. `GenerationBudget` allows 1 live and 1 post-turn call per turn, and 20 a day. Three real codex calls took 6.1, 9.1 and 12.3 s, so questions are generated into a pool ahead of time rather than on demand. `meanwhile model-check` makes one test call.
 - 2.2 done (2026-10-19). The notch asks "Turn on codebase questions for <repo>?" once per repo (Yes / Not now / Never). It never asks for empty or unreadable repos, and "Not now" comes back after a day. Also fixed: the app couldn't detect stacks for repos under `~/Desktop`, so their stack decks were missing. The worker now records stacks in `library.sqlite`, and the app uses them.
+- 2.3 done (2026-10-19). `RepoIndexer` keeps a file map by git blob hash for repos that are turned on.
+  - It skips the run entirely when `HEAD` and `git status` are unchanged.
+  - It hashes only working-tree changes and writes only the differences.
+  - Synthetic 50,000-file repo: cold index 1.4 s, unchanged 0.24 s, one edit 0.9 s, 13 MB of index.
+  - One change from the plan: no FSEvents. The app can't watch protected folders either; the worker's git checks on each turn start, edit and turn end cover it.
+  - Branches share a single current snapshot per repo; blobs already seen are never reprocessed.
 
 | # | Task | Size | Done when |
 |---|---|---|---|

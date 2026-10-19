@@ -124,6 +124,57 @@ public final class LibraryStore: Sendable {
         }
     }
 
+    // MARK: Index (task 2.3)
+
+    func repoID(root: String) throws -> Int64 {
+        try noteRepo(root: root)
+        return try writer.read { try Int64.fetchOne($0, sql: "SELECT id FROM repo WHERE root = ?", arguments: [root])! }
+    }
+
+    func indexState(repoID: Int64) throws -> (head: String?, status: String)? {
+        try writer.read { db in
+            guard let row = try Row.fetchOne(db, sql: "SELECT head, statusHash FROM repo WHERE id = ?", arguments: [repoID]),
+                  let status = row["statusHash"] as String? else { return nil }
+            return (row["head"], status)
+        }
+    }
+
+    func fileEntries(repoID: Int64) throws -> [String: String] {
+        try writer.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT path, sha FROM fileEntry WHERE repoId = ?", arguments: [repoID])
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0["path"], $0["sha"]) })
+        }
+    }
+
+    func fileCount(repoID: Int64) throws -> Int {
+        try writer.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM fileEntry WHERE repoId = ?", arguments: [repoID]) ?? 0 }
+    }
+
+    func knownBlobs(_ hashes: Set<String>) throws -> Set<String> {
+        guard !hashes.isEmpty else { return [] }
+        return try writer.read { db in
+            var known = Set<String>()
+            // SQLite caps bound parameters; ask in chunks.
+            let all = Array(hashes)
+            for start in stride(from: 0, to: all.count, by: 500) {
+                let chunk = Array(all[start..<min(start + 500, all.count)])
+                let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+                known.formUnion(try String.fetchAll(db, sql: "SELECT sha FROM blob WHERE sha IN (\(marks))",
+                                                    arguments: StatementArguments(chunk)))
+            }
+            return known
+        }
+    }
+
+    /// The current blob of each path in a repo, for staleness checks and evidence.
+    public func blob(of path: String, root: String) throws -> String? {
+        try writer.read { db in
+            try String.fetchOne(db, sql: """
+                SELECT f.sha FROM fileEntry f JOIN repo r ON r.id = f.repoId WHERE r.root = ? AND f.path = ?
+                """, arguments: [root, path])
+        }
+    }
+
     private static func repo(_ row: Row) -> Repo {
         let stacks = (row["stacks"] as String?)?.split(separator: ",").compactMap { Stack(rawValue: String($0)) } ?? []
         return Repo(root: row["root"], state: Repo.State(rawValue: row["state"]) ?? .unasked,
@@ -176,6 +227,27 @@ public final class LibraryStore: Sendable {
             try db.alter(table: "repo") { t in
                 t.add(column: "stacks", .text)
                 t.add(column: "askedAt", .datetime)
+            }
+        }
+        // Task 2.3: the file map, content-addressed by git blob hash.
+        migrator.registerMigration("v4-index") { db in
+            try db.alter(table: "repo") { t in
+                t.add(column: "head", .text)
+                t.add(column: "statusHash", .text)
+            }
+            // One row per unique file content, shared by every repo and branch that has it.
+            try db.create(table: "blob") { t in
+                t.primaryKey("sha", .text)
+                t.column("size", .integer).notNull()
+                t.column("kind", .text).notNull()
+                t.column("skipReason", .text)
+            }
+            // Which blob each path is at, per repo, as of the last index.
+            try db.create(table: "fileEntry") { t in
+                t.column("repoId", .integer).notNull().references("repo", onDelete: .cascade)
+                t.column("path", .text).notNull()
+                t.column("sha", .text).notNull().indexed()
+                t.primaryKey(["repoId", "path"])
             }
         }
         return migrator
