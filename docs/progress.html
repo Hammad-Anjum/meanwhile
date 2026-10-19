@@ -86,8 +86,8 @@
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
 
-<h2>High-level structure</h2>
-<p class="legend">How the pieces connect at runtime. Solid boxes are built; dashed grey boxes are planned.</p>
+<h2>Overall architecture</h2>
+<p class="legend">All phases combined: how the pieces connect at runtime. Solid boxes are built; dashed grey boxes are planned.</p>
 <div class="card">
 <pre class="mermaid">
 flowchart LR
@@ -119,7 +119,6 @@ flowchart LR
     AD[Agent adapters<br/>Claude · Codex → AgentEvent]
     STORE[(Event store · SQLite<br/>raw lines + events, 30 days)]
     SESS[Session tracker<br/>idle · working · needs input · done<br/>needs input fades after 5 s]
-    QE[Question engine]:::planned
     SCH[Scheduler<br/>due → new → rest · 3 per wait]
     NOTCH[Notch UI<br/>compact: timer · count · needs you · done<br/>expanded: question · feedback · confidence · recap<br/>static: moves on only when you pick Next]
     HK[Hotkeys ⌃⌥1–4 · ⌃⌥↩ next]
@@ -135,18 +134,28 @@ flowchart LR
     SESS -- working · needs input · done --> NOTCH
     HK --> NOTCH
     ES --> AD --> STORE -.-> SESS
-    STORE -.-> QE -.-> SCH
   end
 
   REC -- scripts/extract_fixture.py --> FIX[(Test fixtures)]
   NOTCH -- click, focus stays<br/>in the terminal --> USER((You))
-  QE -.-> LLM[LLM provider<br/>default: codex exec<br/>also claude -p · API keys]:::planned
+  H -. spawns at turn start, first edit, turn end .-> WK
+  subgraph Worker[meanwhile work · started by the hook · terminal's file access]
+    WK[Worker<br/>one at a time]:::planned
+    IDX[(Repo index<br/>files by blob hash · docs FTS · git history · symbols)]:::planned
+    GEN[Evidence pack → generator → validator]:::planned
+    WK -.-> IDX
+    WK -.-> GEN
+    IDX -.-> GEN
+  end
+  GEN -.-> LLM[LLM provider<br/>codex exec · 20 calls a day]:::planned
+  GEN -.-> POOL[(Question pool<br/>library.sqlite)]:::planned
+  POOL -.-> SCH
 
   classDef planned stroke-dasharray: 5 4,opacity:0.55
 </pre>
 </div>
 
-<h2>Low-level structure</h2>
+<h2>Code structure</h2>
 <p class="legend">Swift targets, files and the calls between them. Solid arrows point from caller to callee; dotted "tested by" arrows lead to the tests.</p>
 <div class="card">
 <pre class="mermaid">
@@ -252,6 +261,67 @@ flowchart TB
   US -. tested by .-> T4
   SPOOL -. tested by .-> T4
 
+  classDef planned stroke-dasharray: 5 4,opacity:0.55
+</pre>
+</div>
+
+
+<h2>Phase diagrams</h2>
+<p class="legend">What each phase builds. Solid boxes are built; dashed grey boxes are planned.</p>
+
+<h3>Phase 0 · setup and de-risking spikes (done)</h3>
+<div class="card">
+<pre class="mermaid">
+flowchart LR
+  CC[Claude Code] -- hook JSON --> H[meanwhile-hook]
+  CX[Codex] -- hook JSON --> H
+  H -- one JSON line · Unix socket --> ES[Event server]
+  H -- app not running --> SP[(Spool)]
+  SP -- drained on launch --> LOG[Debug Event Log]
+  ES --> LOG
+  LOG --> REC[(Recording)] -- extract_fixture.py --> FIX[(Fixtures)]
+  N[Notch spike<br/>click keeps terminal focus · ⌃⌥1–4]
+  PS[Provider spike<br/>codex exec: question in 6–7 s]
+  TC[Terms check<br/>CLI route allowed unmodified]
+</pre>
+</div>
+
+<h3>Phase 1 · vertical slice: Claude Code and Codex with decks (done)</h3>
+<div class="card">
+<pre class="mermaid">
+flowchart LR
+  H[meanwhile-hook] --> ES[Event server]
+  ES --> AD[Adapters<br/>Claude · Codex → AgentEvent]
+  AD --> ST[(Event store<br/>30 days)]
+  AD --> TR[Session tracker<br/>idle · working · needs you · done]
+  TR --> NO[Notch<br/>question · feedback · confidence · recap]
+  PK[(6 decks · 180 cards)] --> DK[Decks<br/>generic + stack of this repo]
+  SD[Stack detector] --> DK
+  DK --> SC[Scheduler<br/>due · new · 3 per wait]
+  SC <--> RV[(reviews.sqlite)]
+  SC --> NO
+  NO -- answer on click --> RV
+  SU[meanwhile setup] -- hooks + backup --> CFG[~/.claude · ~/.codex]
+  SU -- copy to App Support/bin --> LA[Login item<br/>meanwhile run]
+</pre>
+</div>
+
+<h3>Phase 2 · codebase questions (next)</h3>
+<div class="card">
+<pre class="mermaid">
+flowchart LR
+  H[meanwhile-hook] -. spawns .-> WK[Worker · meanwhile work<br/>terminal's file access]:::planned
+  WK -. git ls-files · log · blame .-> IDX[(Index by blob hash<br/>files · docs FTS · churn · authors · symbols)]:::planned
+  EV[(Event store<br/>this turn's edits and reads)] -.-> EP
+  IDX -.-> EP[Evidence pack<br/>6k tokens · redacted · context score]:::planned
+  EP -. score ≥ 4 .-> GEN[Generators<br/>live diff · post-turn why · primer]:::planned
+  GEN -.-> PR[Provider<br/>codex exec · 1 live + 1 post per turn · 20/day]:::planned
+  PR -.-> VAL[Validator<br/>quotes match · one answer · fits notch]:::planned
+  VAL -.-> POOL[(Question pool)]:::planned
+  IDX -. blob changed → stale .-> POOL
+  POOL -.-> SEL[Selection v2<br/>rules · Need · CodeRelevance · DeckFit · Novelty]:::planned
+  SEL -.-> NO[Notch<br/>why-this line · report wrong · predictions]:::planned
+  NO -. opt-in per repo .-> IDX
   classDef planned stroke-dasharray: 5 4,opacity:0.55
 </pre>
 </div>
