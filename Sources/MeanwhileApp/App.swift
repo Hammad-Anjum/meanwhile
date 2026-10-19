@@ -93,6 +93,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let notch = NotchController()
     private var eventLogWindow: NSWindow?
     private var pruneTimer: Timer?
+    private var tickTimer: Timer?
+    private var tracker = SessionTracker()
 
     override init() {
         var error: String?
@@ -113,20 +115,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = try? store?.prune()
         }
 
-        // Spike wiring: a prompt opens a question; when the agent stops or needs you, step aside.
-        // Not on `PermissionRequest`: Claude Code sends it even when auto mode approves the
-        // call. The `Notification` that follows a real prompt to the user is the signal.
-        log.onAgentEvent = { [notch] event, payload in
-            switch event {
-            case "UserPromptSubmit":
-                notch.ask()
-            case "Notification":
-                let type = payload["notification_type"] as? String
-                if type == "permission_prompt" || type == "idle_prompt" { notch.hide() }
-            case "Stop", "StopFailure", "SessionEnd":
-                notch.hide()
-            default:
-                break
+        // The notch follows the session tracker: a question while the agent works,
+        // out of the way when it needs you or is done.
+        log.onEvents = { [weak self] events in
+            guard let self else { return }
+            self.handle(events.compactMap { self.tracker.apply($0) })
+        }
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.handle(self.tracker.tick(now: Date()))
             }
         }
         // Until the notch UI exists, the Event Log is the only window, and the menu bar
@@ -137,6 +135,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         notch.shutdown()
         log.stop()
+    }
+
+    /// Only the focused session (the most recently active one) moves the notch, so a
+    /// second agent finishing doesn't hide the question for the one you're waiting on.
+    private func handle(_ transitions: [SessionTransition]) {
+        let focus = tracker.focused?.session
+        for transition in transitions {
+            let line = "[session \(transition.session.prefix(8))] \(transition.from.rawValue) → \(transition.to.rawValue)\n"
+            FileHandle.standardError.write(Data(line.utf8))
+        }
+        for transition in transitions where focus == nil || transition.session == focus {
+            switch transition.to {
+            case .working: notch.ask()
+            case .needsInput, .done, .idle, .ended: notch.hide()
+            }
+        }
     }
 
     func askSoon() {
