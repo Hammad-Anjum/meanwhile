@@ -75,6 +75,8 @@ public struct Worker: Sendable {
         if repo.state == .on, let indexed = try? RepoIndexer(library: library).index(root: root) {
             if !indexed.skippedUnchanged {
                 try DocIndexer(library: library).process(root: root, newBlobs: indexed.newBlobs)
+                try SymbolIndexer(library: library).process(
+                    root: root, newBlobs: indexed.newBlobs, filesChanged: indexed.added + indexed.changed + indexed.removed > 0)
                 try HistoryIndexer(library: library).update(root: root)
                 try library.markStaleQuestions(root: root)
             }

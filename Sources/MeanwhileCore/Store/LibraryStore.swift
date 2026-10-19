@@ -314,6 +314,27 @@ public final class LibraryStore: Sendable {
                 t.column("status", .text).notNull()
             }
         }
+        // Task 2.11: symbols, references and file rank. (Migrations apply in this order.)
+        migrator.registerMigration("v7-symbols") { db in
+            try db.alter(table: "blob") { t in t.add(column: "symbolized", .boolean).notNull().defaults(to: false) }
+            try db.create(table: "symbolDef") { t in
+                t.column("sha", .text).notNull().indexed()
+                t.column("name", .text).notNull().indexed()
+                t.column("kind", .text).notNull()
+                t.column("line", .integer).notNull()
+            }
+            try db.create(table: "symbolRef") { t in
+                t.column("sha", .text).notNull()
+                t.column("name", .text).notNull().indexed()
+                t.primaryKey(["sha", "name"])
+            }
+            try db.create(table: "fileRank") { t in
+                t.column("repoId", .integer).notNull().references("repo", onDelete: .cascade)
+                t.column("path", .text).notNull()
+                t.column("percentile", .double).notNull()
+                t.primaryKey(["repoId", "path"])
+            }
+        }
         return migrator
     }
 }

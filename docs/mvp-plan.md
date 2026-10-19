@@ -187,6 +187,13 @@ Progress:
     - Predictions never enter spaced repetition.
   - **"Report wrong question":** retires a codebase question or hides a deck card for good, and logs the report.
   - **Not built:** the plan's "pause a generator run after more than 2 reports". Runs aren't tracked yet; the shown log has what's needed to add it.
+- 2.11 done (2026-10-19). `SymbolIndexer` extracts definitions and references for Swift, TypeScript/JavaScript, Python, Go, Rust, Java/Kotlin and C-family.
+  - **Patterns, not tree-sitter, for v1:** the result only ranks files, and this needs no bundled grammars.
+  - **Links:** files are linked by shared names, weighted like Aider: types 2, descriptive names 1, short names 0.5, divided by √(files defining the name). Links under 1 are dropped.
+  - **Uses:** PageRank gives each file a centrality percentile for selection, and a code map of the edited files' neighbors goes into evidence packs (about 1,500 tokens).
+  - **Speed and quality:** 47,500 files symbolized and ranked in 14.6 s. The weighting cut the map near `Worker.swift` from 24 loosely related files to 12 mostly right ones.
+
+**Phase 2 status:** all 12 tasks built (2026-10-19). The exit check is still open: of 20 codebase questions on your own repos, you judge at least 16 correct and worth asking.
 
 | # | Task | Size | Done when |
 |---|---|---|---|

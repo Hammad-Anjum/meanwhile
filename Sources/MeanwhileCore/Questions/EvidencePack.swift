@@ -50,7 +50,9 @@ public struct EvidenceBuilder: Sendable {
         /// Characters, at about 4 per token: 6,000 tokens in all.
         public var total = 24_000
         public var editsAndCode = 12_000
-        public var docsAndHistory = 10_000
+        public var docsAndHistory = 6_000
+        /// About 1,500 tokens of neighbors from the symbol graph.
+        public var repoMap = 6_000
         public var linesAroundEdit = 20
         public var maxFiles = 4
         public init() {}
@@ -138,6 +140,12 @@ public struct EvidenceBuilder: Sendable {
             }
         }
         if !docsText.isEmpty { sections.append(.init(title: "Docs and history about these files", text: docsText)) }
+
+        // The code around the edited files: their neighbors in the reference graph (task 2.11).
+        if readable {
+            let map = try SymbolIndexer(library: library).map(near: editedPaths, root: root, characters: budget.repoMap)
+            if !map.isEmpty { sections.append(.init(title: "Code map near these files", text: map)) }
+        }
 
         // Other files the agent read: callers and callees, likely.
         let reads = Set(turn.compactMap { event -> String? in

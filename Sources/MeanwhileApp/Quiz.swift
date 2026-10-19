@@ -173,6 +173,7 @@ final class Quiz {
         let ageDays = Date().timeIntervalSince(question.createdAt) / 86_400
         let history = try? library?.history(of: question.sourcePath, root: root)
         return .init(recency: touched ? 1 : pow(0.5, ageDays),
+                     centrality: (try? library?.centrality(of: question.sourcePath, root: root)) ?? 0.5,
                      hotspot: Double(history?.commits ?? 0) / Double(busiest),
                      notMine: history?.notMine ?? 0.5)
     }
