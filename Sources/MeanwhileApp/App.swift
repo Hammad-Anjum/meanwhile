@@ -140,10 +140,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             errors.append("Could not open \(MeanwhilePaths.reviewStore.path): \(error)")
         }
-        quiz = Quiz(decks: decks, reviews: reviews)
+        var library: LibraryStore?
+        do {
+            library = try LibraryStore()
+        } catch {
+            errors.append("Could not open \(MeanwhilePaths.libraryStore.path): \(error)")
+        }
+        quiz = Quiz(decks: decks, reviews: reviews, library: library)
         log = EventLog(store: store, storeError: errors.isEmpty ? nil : errors.joined(separator: " · "))
         super.init()
         notch.nextQuestion = { [quiz] in quiz.next() }
+        notch.pendingOptIn = { [quiz] in quiz.pendingOptIn() }
+        notch.onOptIn = { [quiz] root, choice in quiz.answerOptIn(root: root, choice: choice) }
         notch.onRecord = { [quiz] question, answer in quiz.record(question, answer) }
         notch.onRevise = { [quiz] question, confidence in quiz.revise(question, confidence: confidence) }
         notch.onSkip = { [quiz] question in quiz.skipped(question) }

@@ -79,6 +79,13 @@ final class NotchModel: ObservableObject {
         /// The wait's question limit is reached.
         case enough
         case recap
+        /// "Turn on codebase questions for <name>?" (task 2.2). Not counted as a question.
+        case optIn(name: String, root: String)
+    }
+
+    /// The three answers to the opt-in card, in button and hotkey order.
+    enum OptInChoice: Int, CaseIterable {
+        case yes, notNow, never
     }
 
     @Published var status = AgentStatus.idle
@@ -114,6 +121,10 @@ final class NotchController {
 
     /// The next question for this wait, or nil when there is none.
     var nextQuestion: (() -> QuizQuestion?)?
+    /// A repo to offer codebase questions for before the next question, if any: (name, root).
+    var pendingOptIn: (() -> (name: String, root: String)?)?
+    /// The user's answer to the opt-in card.
+    var onOptIn: ((String, NotchModel.OptInChoice) -> Void)?
     /// Records an answer (with confidence when it was right); returns when the card comes back.
     var onRecord: ((QuizQuestion, NotchModel.Answer) -> String)?
     /// Applies a confidence picked after the answer was saved; returns when the card comes back.
@@ -161,7 +172,7 @@ final class NotchController {
     func resume() {
         model.status = .working
         switch model.content {
-        case .question, .recap:
+        case .question, .recap, .optIn:
             Hotkeys.shared.enable()
             showExpanded()
         case .enough:
@@ -176,9 +187,10 @@ final class NotchController {
     func finish() {
         model.status = .done
         model.turnEnded = Date()
-        if case .question = model.content {
+        switch model.content {
+        case .question, .optIn:
             showExpanded()
-        } else {
+        default:
             showRecapOrDone()
         }
     }
@@ -252,8 +264,17 @@ final class NotchController {
         }
     }
 
+    /// An answer to the opt-in card, then on to the next question.
+    func optIn(_ choice: NotchModel.OptInChoice) {
+        guard case .optIn(_, let root) = model.content else { return }
+        onOptIn?(root, choice)
+        advance()
+    }
+
     private func hotkey(_ index: Int) {
-        if model.isAwaitingConfidence {
+        if case .optIn = model.content {
+            if let choice = NotchModel.OptInChoice(rawValue: index) { optIn(choice) }
+        } else if model.isAwaitingConfidence {
             if Confidence.allCases.indices.contains(index) { choose(Confidence.allCases[index]) }
         } else if case .question(let state) = model.content, state.answer == nil,
                   state.question.options.indices.contains(index) {
@@ -270,7 +291,11 @@ final class NotchController {
     }
 
     private func advance() {
-        if let question = nextQuestion?() {
+        if let repo = pendingOptIn?() {
+            model.content = .optIn(name: repo.name, root: repo.root)
+            Hotkeys.shared.enable()
+            showExpanded()
+        } else if let question = nextQuestion?() {
             show(question)
         } else {
             model.content = model.asked > 0 ? .enough : .nothing

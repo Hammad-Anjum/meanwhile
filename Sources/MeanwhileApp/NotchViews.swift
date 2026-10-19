@@ -45,6 +45,8 @@ struct NotchExpandedView: View {
                       detail: "You hit your limit of \(model.limit) questions. Keep an eye on the agent now.")
         case .recap:
             RecapView(model: model)
+        case .optIn(let name, _):
+            OptInView(name: name, controller: controller)
         case .nothing:
             EmptyNote(title: model.status == .done ? "Done" : "Getting a question ready",
                       detail: model.status == .done ? "No questions this time." : "No card fits your decks yet.")
@@ -68,6 +70,7 @@ struct NotchExpandedView: View {
     }
 
     private var hint: String {
+        if case .optIn = model.content { return "Click or press ⌃⌥1–3" }
         guard case .question(let state) = model.content else { return "" }
         if model.isAwaitingConfidence { return "⌃⌥1–3 how sure · ⌃⌥↩ next" }
         return state.answer == nil ? "Click or press ⌃⌥1–\(state.question.options.count)" : "⌃⌥↩ next"
@@ -314,6 +317,41 @@ struct RecapView: View {
                     Text(item.comesBack).font(.caption).foregroundStyle(NotchColor.muted)
                 }
             }
+        }
+    }
+}
+
+/// "Turn on codebase questions for meanwhile?" Yes / Not now / Never (task 2.2).
+struct OptInView: View {
+    let name: String
+    weak var controller: NotchController?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DeckChip(deck: "Your codebase", topic: nil)
+            (Text("Turn on codebase questions for ") + Text(name).bold() + Text("?"))
+                .font(.system(size: 15, weight: .semibold))
+            HStack(spacing: 6) {
+                ForEach(NotchModel.OptInChoice.allCases, id: \.rawValue) { choice in
+                    Button { controller?.optIn(choice) } label: {
+                        Text("\(choice.rawValue + 1)  \(title(choice))")
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(choice == .yes ? NotchColor.accent.opacity(0.3) : .white.opacity(0.08),
+                                        in: RoundedRectangle(cornerRadius: 7))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func title(_ choice: NotchModel.OptInChoice) -> String {
+        switch choice {
+        case .yes: "Yes"
+        case .notNow: "Not now"
+        case .never: "Never"
         }
     }
 }

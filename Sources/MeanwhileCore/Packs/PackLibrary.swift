@@ -43,8 +43,11 @@ public struct PackLibrary: Sendable {
         }
     }
 
-    /// Convenience for the app: the packs for the repo containing `cwd`.
-    public func packs(forDirectory cwd: String, disabled: Set<String>) -> [Pack] {
-        packs(disabled: disabled, stacks: StackDetector.stacks(inRepo: StackDetector.repoRoot(for: cwd)))
+    /// Convenience for the app: the packs for the repo containing `cwd`. Pass `knownStacks`
+    /// from the library when the worker has seen the repo: the app can't read repos in
+    /// protected folders (~/Desktop and friends) to detect them itself.
+    public func packs(forDirectory cwd: String, disabled: Set<String>, knownStacks: Set<Stack>? = nil) -> [Pack] {
+        packs(disabled: disabled,
+              stacks: knownStacks ?? StackDetector.stacks(inRepo: StackDetector.repoRoot(for: cwd)))
     }
 }

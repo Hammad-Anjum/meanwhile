@@ -44,11 +44,52 @@ public final class LibraryStore: Sendable {
         public var fileCount: Int?
         /// Why the worker couldn't read the repo, if it couldn't.
         public var accessError: String?
+        /// Detected by the worker; the app can't read repos in protected folders itself.
+        public var stacks: Set<Stack> = []
+        /// When the opt-in card was last shown.
+        public var askedAt: Date?
+
+        public var name: String { (root as NSString).lastPathComponent }
+
+        /// Whether the notch should offer to turn codebase questions on: never for an empty
+        /// or unreadable repo; "Not now" comes back after a day (decided 2026-10-19).
+        public func shouldAsk(now: Date = Date()) -> Bool {
+            guard accessError == nil, (fileCount ?? 0) > 0 else { return false }
+            switch state {
+            case .unasked: return true
+            case .later: return askedAt.map { now.timeIntervalSince($0) >= 24 * 3600 } ?? true
+            case .on, .never: return false
+            }
+        }
     }
 
     public func repo(root: String) throws -> Repo? {
         try writer.read { db in
             try Row.fetchOne(db, sql: "SELECT * FROM repo WHERE root = ?", arguments: [root]).map(Self.repo)
+        }
+    }
+
+    /// The known repo containing `directory` (the deepest root that is a prefix of it).
+    public func repo(containing directory: String) throws -> Repo? {
+        let path = (directory as NSString).standardizingPath
+        return try repos()
+            .filter { path == $0.root || path.hasPrefix($0.root.hasSuffix("/") ? $0.root : $0.root + "/") }
+            .max { $0.root.count < $1.root.count }
+    }
+
+    public func recordStacks(_ stacks: Set<Stack>, root: String) throws {
+        try writer.write { db in
+            try db.execute(sql: "UPDATE repo SET stacks = ? WHERE root = ?",
+                           arguments: [stacks.map(\.rawValue).sorted().joined(separator: ","), root])
+        }
+    }
+
+    /// Records the user's answer to the opt-in card.
+    public func answerOptIn(_ state: Repo.State, root: String, at now: Date = Date()) throws {
+        try noteRepo(root: root)
+        try writer.write { db in
+            try db.execute(sql: "UPDATE repo SET state = ?, askedAt = ? WHERE root = ?",
+                           arguments: [state.rawValue, now, root])
         }
     }
 
@@ -84,8 +125,10 @@ public final class LibraryStore: Sendable {
     }
 
     private static func repo(_ row: Row) -> Repo {
-        Repo(root: row["root"], state: Repo.State(rawValue: row["state"]) ?? .unasked,
-             lastIndexedAt: row["lastIndexedAt"], fileCount: row["fileCount"], accessError: row["accessError"])
+        let stacks = (row["stacks"] as String?)?.split(separator: ",").compactMap { Stack(rawValue: String($0)) } ?? []
+        return Repo(root: row["root"], state: Repo.State(rawValue: row["state"]) ?? .unasked,
+                    lastIndexedAt: row["lastIndexedAt"], fileCount: row["fileCount"], accessError: row["accessError"],
+                    stacks: Set(stacks), askedAt: row["askedAt"])
     }
 
     // MARK: Schema
@@ -126,6 +169,13 @@ public final class LibraryStore: Sendable {
             try db.create(table: "agentTurn") { t in
                 t.primaryKey("session", .text)
                 t.column("startedAt", .datetime).notNull()
+            }
+        }
+        // Task 2.2: opt-in and the stacks the worker detects.
+        migrator.registerMigration("v3-opt-in") { db in
+            try db.alter(table: "repo") { t in
+                t.add(column: "stacks", .text)
+                t.add(column: "askedAt", .datetime)
             }
         }
         return migrator

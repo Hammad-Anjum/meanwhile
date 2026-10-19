@@ -63,6 +63,7 @@ public struct Worker: Sendable {
         if let listing, listing.succeeded {
             let count = listing.stdout.split(separator: 0).count
             try library.recordAccess(root: root, fileCount: count, error: nil)
+            try library.recordStacks(StackDetector.stacks(inRepo: root), root: root)
         } else {
             let reason = listing.map { $0.timedOut ? "git timed out" : $0.stderr.trimmingCharacters(in: .whitespacesAndNewlines) }
                 ?? "git could not start"

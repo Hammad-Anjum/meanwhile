@@ -27,8 +27,9 @@ final class Decks {
         if disabled.contains(id) { disabled.remove(id) } else { disabled.insert(id) }
     }
 
-    /// The enabled decks that apply to the repo at `cwd`.
-    func packs(forDirectory cwd: String) -> [Pack] {
-        library.packs(forDirectory: cwd, disabled: disabled)
+    /// The enabled decks that apply to the repo at `cwd`. `knownStacks` comes from the
+    /// worker, which (unlike the app) can read repos under ~/Desktop.
+    func packs(forDirectory cwd: String, knownStacks: Set<Stack>? = nil) -> [Pack] {
+        library.packs(forDirectory: cwd, disabled: disabled, knownStacks: knownStacks)
     }
 }
