@@ -30,24 +30,8 @@ extension MeanwhileCommand {
         }
     }
 
-    struct Setup: ParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "Install the agent hooks.")
-        func run() throws { throw notImplemented("setup") }
-    }
-
-    struct Uninstall: ParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "Remove the agent hooks.")
-        func run() throws { throw notImplemented("uninstall") }
-    }
-
     struct Version: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Print the version.")
         func run() throws { print(Meanwhile.version) }
     }
-}
-
-/// Prints to stderr and exits 1, without the usage text a `ValidationError` would add.
-private func notImplemented(_ command: String) -> ExitCode {
-    FileHandle.standardError.write(Data("meanwhile \(command): not implemented yet (task 1.7)\n".utf8))
-    return .failure
 }

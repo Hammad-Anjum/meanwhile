@@ -1,6 +1,6 @@
 # Meanwhile
 
-A macOS notch app that asks you short questions while your coding agent (Claude Code, Codex, Cursor) works: about your codebase, about what the agent found, and from decks you choose.
+A macOS notch tool that asks you short questions while your coding agent (Claude Code, Codex, Cursor) works: about your codebase, about what the agent found, and from decks you choose.
 
 Status: early build. See [docs/](docs/README.md) for the design and [docs/mvp-plan.md](docs/mvp-plan.md) for the task list. A clickable mockup is in [mockup/index.html](mockup/index.html). Progress, with diagrams of the current structure, is in [docs/progress.html](docs/progress.html).
 
@@ -15,6 +15,17 @@ make run      # build and run `meanwhile run` in the foreground; look for the ic
 ```
 
 Or directly: `swift run meanwhile run`. `meanwhile --help` lists the commands.
+
+## Set up
+
+```sh
+swift build
+.build/debug/meanwhile setup --dry-run   # what would change; changes nothing
+.build/debug/meanwhile setup             # hooks for Claude Code and Codex, start at login, a test question
+.build/debug/meanwhile uninstall         # removes the hooks and the login item; keeps your progress
+```
+
+`setup` backs up `~/.claude/settings.json` and `~/.codex/hooks.json` before merging Meanwhile's hook entries, and keeps everything else in them. For Codex, run `/hooks` in Codex afterwards and trust the Meanwhile entries. The launch agent runs the `meanwhile` you ran `setup` with, so run it from where the binary will stay.
 
 ## Layout
 
