@@ -159,7 +159,7 @@ flowchart LR
   GEN --> LLM[LLM provider<br/>codex exec · claude -p<br/>1 live + 1 post per turn · 20 a day]
   LLM --> LIB
   GEN --> POOL[(Question pool<br/>stale when cited blobs change)]
-  POOL -. task 2.8 .-> SCH
+  POOL -. selection v2 .-> SCH
 
   classDef planned stroke-dasharray: 5 4,opacity:0.55
 </pre>
