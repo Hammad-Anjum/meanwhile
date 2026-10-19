@@ -42,7 +42,8 @@ extension MeanwhileCommand {
             Setup.warnAboutProjectHooks()
             let provider = Provider.detect()
             print("Provider for questions: \(provider.map { "\($0) (found on your PATH)" } ?? "none found yet; codebase questions come later")")
-            if !noStart { print("Start at login: \(LaunchAgent(executable: paths.meanwhile.path).plistURL.path)") }
+            print("Install meanwhile and meanwhile-hook into \(Setup.tilde(Binaries.directory.path))")
+            if !noStart { print("Start at login: \(Setup.tilde(LaunchAgent(executable: Binaries.installedApp.path).plistURL.path))") }
             print()
 
             if dryRun {
@@ -56,6 +57,7 @@ extension MeanwhileCommand {
 
             // 2. Install.
             try Binaries.installHook(from: paths.hook)
+            try Binaries.installApp(from: paths.meanwhile)
             for plan in plans where plan.changes {
                 let backup = try installer.apply(plan)
                 print("✓ \(plan.agent.displayName): updated \(Setup.tilde(plan.file.path))"
@@ -75,7 +77,7 @@ extension MeanwhileCommand {
                 print("\nDone. Start it yourself with: meanwhile run")
                 return
             }
-            try LaunchAgent(executable: paths.meanwhile.path).install()
+            try LaunchAgent(executable: Binaries.installedApp.path).install()
             print("✓ Meanwhile starts now and at every login.")
             guard Setup.waitForSocket() else {
                 print("Meanwhile didn't start within 10 s. See \(Setup.tilde(LaunchAgent(executable: "").logURL.path)).")
@@ -189,7 +191,7 @@ extension MeanwhileCommand {
                 print("✓ \(plan.agent.displayName): hooks removed" + (backup.map { " (backup: \($0.lastPathComponent))" } ?? ""))
             }
             try LaunchAgent(executable: "").uninstall()
-            try? FileManager.default.removeItem(at: Binaries.installedHook)
+            try? FileManager.default.removeItem(at: Binaries.directory)
             print("""
             ✓ Meanwhile is stopped and won't start at login.
             Your progress and recent events are still in \(Setup.tilde(MeanwhilePaths.supportDirectory.path)).
@@ -199,9 +201,15 @@ extension MeanwhileCommand {
     }
 }
 
-/// Where `meanwhile` and `meanwhile-hook` are, and where the hook is installed for agents.
+/// Where `meanwhile` and `meanwhile-hook` are, and where they are installed.
+///
+/// Both are copied into ~/Library/Application Support/Meanwhile/bin. The login item can't
+/// run them from a checkout under ~/Desktop, ~/Documents or ~/Downloads: macOS privacy
+/// protection hides those folders from launchd-started processes (seen 2026-10-19).
 enum Binaries {
-    static var installedHook: URL { MeanwhilePaths.supportDirectory.appendingPathComponent("bin/meanwhile-hook") }
+    static var directory: URL { MeanwhilePaths.supportDirectory.appendingPathComponent("bin", isDirectory: true) }
+    static var installedHook: URL { directory.appendingPathComponent("meanwhile-hook") }
+    static var installedApp: URL { directory.appendingPathComponent("meanwhile") }
 
     /// This executable and the `meanwhile-hook` built or shipped next to it.
     static func locate() throws -> (meanwhile: URL, hook: URL) {
@@ -216,12 +224,32 @@ enum Binaries {
 
     /// Copies the hook where agent configs point, replacing any older copy.
     static func installHook(from source: URL) throws {
+        try copy(source, to: installedHook)
+    }
+
+    /// Copies `meanwhile` and the SwiftPM resource bundles beside it (the decks) into place.
+    static func installApp(from executable: URL) throws {
+        try copy(executable, to: installedApp)
+        let built = executable.deletingLastPathComponent()
+        let bundles = try FileManager.default.contentsOfDirectory(at: built, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "bundle" && !$0.lastPathComponent.contains("Tests") }
+        for bundle in bundles {
+            try copy(bundle, to: directory.appendingPathComponent(bundle.lastPathComponent))
+        }
+    }
+
+    /// Replaces `destination` with a copy of `source` without leaving a half-written file.
+    private static func copy(_ source: URL, to destination: URL) throws {
         let fileManager = FileManager.default
-        try fileManager.createDirectory(at: installedHook.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let staged = installedHook.appendingPathExtension("new")
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let staged = destination.appendingPathExtension("new")
         try? fileManager.removeItem(at: staged)
         try fileManager.copyItem(at: source, to: staged)
-        _ = try fileManager.replaceItemAt(installedHook, withItemAt: staged)
+        if fileManager.fileExists(atPath: destination.path) {
+            _ = try fileManager.replaceItemAt(destination, withItemAt: staged)
+        } else {
+            try fileManager.moveItem(at: staged, to: destination)
+        }
     }
 }
 

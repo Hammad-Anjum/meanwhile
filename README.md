@@ -25,7 +25,7 @@ swift build
 .build/debug/meanwhile uninstall         # removes the hooks and the login item; keeps your progress
 ```
 
-`setup` backs up `~/.claude/settings.json` and `~/.codex/hooks.json` before merging Meanwhile's hook entries, and keeps everything else in them. For Codex, run `/hooks` in Codex afterwards and trust the Meanwhile entries. The launch agent runs the `meanwhile` you ran `setup` with, so run it from where the binary will stay.
+`setup` backs up `~/.claude/settings.json` and `~/.codex/hooks.json` before merging Meanwhile's hook entries, and keeps everything else in them. For Codex, run `/hooks` in Codex afterwards and trust the Meanwhile entries. `setup` copies `meanwhile`, `meanwhile-hook` and the decks into `~/Library/Application Support/Meanwhile/bin` and the login item runs that copy, because macOS hides `~/Desktop`, `~/Documents` and `~/Downloads` from background processes. After rebuilding, run `setup` again to update the copy.
 
 ## Layout
 
