@@ -77,12 +77,12 @@
 <main>
 
 <h1>Meanwhile: progress</h1>
-<p class="sub">Last updated 2026-10-19 · Phase 2 in progress (2.0 done) · <a href="phase2-plan.md">plan</a> · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+<p class="sub">Last updated 2026-10-19 · Phase 2 in progress (2.0–2.1 done) · <a href="phase2-plan.md">plan</a> · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
 
 <div class="stats">
   <div class="stat"><b>7 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:100%"></i></div></div>
-  <div class="stat"><b>15 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:37%"></i></div></div>
-  <div class="stat"><b>87 / 87</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="stat"><b>16 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:39%"></i></div></div>
+  <div class="stat"><b>95 / 95</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
 
@@ -149,7 +149,8 @@ flowchart LR
     WK -.-> GEN
     IDX -.-> GEN
   end
-  GEN -.-> LLM[LLM provider<br/>codex exec · 20 calls a day]:::planned
+  GEN -.-> LLM[LLM provider<br/>codex exec · claude -p<br/>1 live + 1 post per turn · 20 a day]
+  LLM --> LIB
   GEN -.-> POOL[(Question pool<br/>library.sqlite)]:::planned
   POOL -.-> SCH
 
@@ -180,7 +181,8 @@ flowchart TB
     SH["ShellCommand · ApplyPatch<br/>reads in cat/sed · patch → FileEdit"]
     MW["Meanwhile.version"]
     WRK["Worker/ · Worker · Shell<br/>submit() · queue · flock · git ls-files"]
-    LIBS["Store/ · LibraryStore<br/>library.sqlite: repo · workRequest"]
+    LIBS["Store/ · LibraryStore<br/>library.sqlite: repo · workRequest · generationCall"]
+    PRV["Providers/ · QuestionModel<br/>CodexCLIModel · ClaudeCLIModel · GenerationBudget"]
     STO["Store/ · EventStore<br/>ingest() · events() · prune()"]
     TRK["Sessions/ · SessionTracker<br/>apply(event) · tick(now) → SessionTransition"]
     PK["Packs/ · Pack · Card · PackLibrary<br/>bundled() · packs(forDirectory:)"]
@@ -217,12 +219,16 @@ flowchart TB
     T9[SchedulerTests]
     T10[InstallTests]
     T11[WorkerTests]
+    T12[ProviderTests]
     FX[(Fixtures/*.ndjson)]
   end
 
   MAIN --> WIRE
   MAIN --> WL
   WRK --> LIBS
+  PRV --> LIBS
+  PRV --> SH2["Shell"]
+  PRV -. tested by .-> T12
   WRK -. tested by .-> T11
   MAIN --> US
   MAIN --> SPOOL
@@ -324,7 +330,7 @@ flowchart LR
   EV[(Event store<br/>this turn's edits and reads)] -.-> EP
   IDX -.-> EP[Evidence pack<br/>6k tokens · redacted · context score]:::planned
   EP -. score ≥ 4 .-> GEN[Generators<br/>live diff · post-turn why · primer]:::planned
-  GEN -.-> PR[Provider<br/>codex exec · 1 live + 1 post per turn · 20/day]:::planned
+  GEN -.-> PR[Provider<br/>codex exec · 1 live + 1 post per turn · 20/day]
   PR -.-> VAL[Validator<br/>quotes match · one answer · fits notch]:::planned
   VAL -.-> POOL[(Question pool)]:::planned
   IDX -. blob changed → stale .-> POOL
@@ -371,8 +377,8 @@ flowchart LR
 <table>
   <tr><th>#</th><th>Task</th><th>Size</th><th>Status</th></tr>
   <tr><td>2.0</td><td>Access spike: worker started by the hook reads repos under ~/Desktop</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>2.1</td><td>Provider layer: <code>codex exec</code> first, budget 1 live + 1 post per turn, 20 a day</td><td>M</td><td><span class="pill next">Next</span></td></tr>
-  <tr><td>2.2</td><td>Repo opt-in in the notch, once per repo</td><td>S</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>2.1</td><td>Provider layer: <code>codex exec</code> and <code>claude -p</code>, budget 1 live + 1 post per turn, 20 a day. Real calls: 6.1, 9.1, 12.3 s</td><td>M</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>2.2</td><td>Repo opt-in in the notch, once per repo</td><td>S</td><td><span class="pill next">Next</span></td></tr>
   <tr><td>2.3</td><td>Index core: files by blob hash, exclusions, change detection, caps</td><td>L</td><td><span class="pill todo">To do</span></td></tr>
   <tr><td>2.4</td><td>Docs in FTS5; git history, churn, authorship</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
   <tr><td>2.5</td><td>Evidence packs (6k tokens), redaction, hook-only fallback</td><td>M</td><td><span class="pill todo">To do</span></td></tr>
@@ -409,6 +415,7 @@ flowchart LR
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>2.1 done: <code>QuestionModel</code> with <code>codex exec</code> (default) and <code>claude -p</code>, each in an empty folder with stdin closed and <code>MEANWHILE_INTERNAL=1</code>; <code>GenerationBudget</code> logs every call and allows 1 live + 1 post-turn call per turn and 20 a day. Three real codex calls: 6.1, 9.1, 12.3 s; the question pool hides that latency.</td><td>Labels updated</td></tr>
   <tr><td>2026-10-19</td><td>Phase 2 started. Tracker now has one diagram per phase plus the overall architecture. 2.0 done: <code>meanwhile-hook</code> starts a detached worker (<code>meanwhile work</code>) on turn start, edits and turn end; it read this repo under ~/Desktop (69 files), which the login item cannot.</td><td>Overall, code and Phase 2 updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>1.7 done: real <code>meanwhile setup</code> run. Fixed two launch problems found on the way (resource bundle lookup; macOS hiding ~/Desktop from the login item), so setup now installs into Application Support. Phase 2 planned in <code>docs/phase2-plan.md</code> with research on scaling the index and ranking questions; decisions: hook-started indexer, ask per repo, 20 calls a day, 'why this' line in the notch.</td><td>Labels updated</td></tr>
   <tr><td>2026-10-19</td><td>1.6 done: signed off after the third live test.</td><td>Unchanged</td></tr>

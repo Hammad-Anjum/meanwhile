@@ -142,6 +142,7 @@ Revised 2026-10-19; the full plan, the research behind it and the decisions are 
 
 Progress:
 - 2.0 done (2026-10-19). `meanwhile-hook` starts `meanwhile work` detached on turn start, edits and turn end, and the worker read a repo under `~/Desktop`. Requests go through a queue in `library.sqlite`, and one worker at a time works through it. The hook-only fallback is built with the evidence packs (2.5), using the access error the worker records.
+- 2.1 done (2026-10-19). `QuestionModel` with `codex exec` (default) and `claude -p`. `GenerationBudget` allows 1 live and 1 post-turn call per turn, and 20 a day. Three real codex calls took 6.1, 9.1 and 12.3 s, so questions are generated into a pool ahead of time rather than on demand. `meanwhile model-check` makes one test call.
 
 | # | Task | Size | Done when |
 |---|---|---|---|

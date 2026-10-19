@@ -9,7 +9,7 @@ struct MeanwhileCommand: ParsableCommand {
         commandName: "meanwhile",
         abstract: "Short questions in the notch while your coding agent works.",
         version: Meanwhile.version,
-        subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Work.self, Version.self],
+        subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Work.self, ModelCheck.self, Version.self],
         defaultSubcommand: Run.self
     )
 }
@@ -46,6 +46,38 @@ extension MeanwhileCommand {
                 directory: repo, reason: Worker.Request.Reason(rawValue: reason) ?? .manual,
                 agent: agent, session: session))
             if processed == 0 { print("Another worker is running; it will pick this up.") }
+        }
+    }
+
+    /// One real model call with a sample prompt, timed. For checking a provider works.
+    struct ModelCheck: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "model-check", abstract: "Ask the question model one sample question.", shouldDisplay: false)
+
+        @Option(help: "codex or claude. Default: the configured provider.")
+        var provider: String?
+
+        func run() throws {
+            let model: QuestionModel = switch provider {
+            case "claude": ClaudeCLIModel()
+            case "codex": CodexCLIModel()
+            default: Providers.configured()
+            }
+            let schema: [String: Any] = [
+                "type": "object", "additionalProperties": false,
+                "required": ["question", "options", "correct"],
+                "properties": [
+                    "question": ["type": "string"],
+                    "options": ["type": "array", "items": ["type": "string"], "minItems": 4, "maxItems": 4],
+                    "correct": ["type": "integer", "minimum": 0, "maximum": 3],
+                ],
+            ]
+            let start = Date()
+            let answer = try model.generate(
+                prompt: "Write one multiple-choice question (4 options, one correct) about what a SQLite WAL file is for.",
+                schema: schema)
+            print(String(decoding: answer, as: UTF8.self))
+            print(String(format: "%@: %.1f s", model.name, Date().timeIntervalSince(start)))
         }
     }
 

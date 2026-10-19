@@ -111,6 +111,23 @@ public final class LibraryStore: Sendable {
                 t.column("requestedAt", .datetime).notNull()
             }
         }
+        // Task 2.1: every model call, for the per-turn and daily budget.
+        migrator.registerMigration("v2-budget") { db in
+            try db.create(table: "generationCall") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("calledAt", .datetime).notNull().indexed()
+                t.column("kind", .text).notNull()
+                t.column("provider", .text).notNull()
+                t.column("repo", .text)
+                t.column("session", .text)
+                t.column("succeeded", .boolean).notNull()
+                t.column("durationMs", .integer).notNull()
+            }
+            try db.create(table: "agentTurn") { t in
+                t.primaryKey("session", .text)
+                t.column("startedAt", .datetime).notNull()
+            }
+        }
         return migrator
     }
 }

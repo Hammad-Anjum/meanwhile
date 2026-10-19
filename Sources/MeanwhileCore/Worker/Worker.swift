@@ -54,6 +54,9 @@ public struct Worker: Sendable {
 
     /// One request. Task 2.0: find the repo and prove it can be read.
     func process(_ request: Request) throws {
+        if request.reason == .turnStart, let session = request.session {
+            try GenerationBudget(library: library).turnStarted(session: session)
+        }
         let root = StackDetector.repoRoot(for: request.directory)
         try library.noteRepo(root: root)
         let listing = try? Shell.run("git", ["-C", root, "ls-files", "-z"], timeout: 30)
