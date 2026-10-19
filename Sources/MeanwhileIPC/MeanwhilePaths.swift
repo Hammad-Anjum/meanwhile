@@ -19,6 +19,12 @@ public enum MeanwhilePaths {
     /// Card progress and the answer log (task 1.5). Never pruned.
     public static var reviewStore: URL { supportDirectory.appendingPathComponent("reviews.sqlite") }
 
+    /// Repos, their index and the question pool (Phase 2). Written by the worker.
+    public static var libraryStore: URL { supportDirectory.appendingPathComponent("library.sqlite") }
+
+    /// Held by the running worker so only one runs at a time.
+    public static var workerLock: URL { supportDirectory.appendingPathComponent("worker.lock") }
+
     /// Every event the app receives, as raw lines. Used to record test fixtures (task 0.3).
     public static var debugRecording: URL {
         supportDirectory.appendingPathComponent("debug/events.ndjson")

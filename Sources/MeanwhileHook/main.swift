@@ -36,4 +36,12 @@ let line = Wire.envelope(agent: agent, event: event, payload: payload,
 if !UnixSocket.send(line, to: MeanwhilePaths.socket.path) {
     Spool.append(line)
 }
+
+// Start the worker beside this binary for turn starts, edits and turn ends. It runs with
+// this terminal's file access, which the login item lacks (docs/phase2-plan.md).
+if !payloadWasTruncated, let reason = WorkerLaunch.reason(event: event, payload: payload),
+   let workerArguments = WorkerLaunch.arguments(reason: reason, agent: agent, payload: payload) {
+    let directory = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent()
+    WorkerLaunch.spawnDetached(directory.appendingPathComponent("meanwhile").path, workerArguments)
+}
 exit(0)

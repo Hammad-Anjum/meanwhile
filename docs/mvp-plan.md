@@ -140,6 +140,9 @@ Second test: every answer saved through four permission prompts. Then trimmed: "
 
 Revised 2026-10-19; the full plan, the research behind it and the decisions are in [phase2-plan.md](phase2-plan.md).
 
+Progress:
+- 2.0 done (2026-10-19). `meanwhile-hook` starts `meanwhile work` detached on turn start, edits and turn end, and the worker read a repo under `~/Desktop`. Requests go through a queue in `library.sqlite`, and one worker at a time works through it. The hook-only fallback is built with the evidence packs (2.5), using the access error the worker records.
+
 | # | Task | Size | Done when |
 |---|---|---|---|
 | 2.0 | Access spike: the indexer runs as a helper started by `meanwhile-hook`, so it can read repos under `~/Desktop`; hook-only fallback | S | A repo on the Desktop gets indexed with no permission prompt, or the fallback is in place |

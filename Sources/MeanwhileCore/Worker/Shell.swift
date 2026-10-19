@@ -1,0 +1,74 @@
+import Foundation
+
+/// Runs a command and collects its output, with a time limit. For git and the agent CLIs.
+public enum Shell {
+    public struct Result: Sendable {
+        public let status: Int32
+        public let stdout: Data
+        public let stderr: String
+        public let timedOut: Bool
+
+        public var succeeded: Bool { status == 0 && !timedOut }
+        public var text: String { String(decoding: stdout, as: UTF8.self) }
+    }
+
+    /// Runs `executable` (an absolute path, or a name found on PATH) with stdin closed.
+    public static func run(_ executable: String, _ arguments: [String], in directory: String? = nil,
+                           environment: [String: String]? = nil, timeout: TimeInterval = 30) throws -> Result {
+        let process = Process()
+        if executable.hasPrefix("/") {
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = arguments
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = [executable] + arguments
+        }
+        if let directory { process.currentDirectoryURL = URL(fileURLWithPath: directory) }
+        if let environment { process.environment = environment }
+        let out = Pipe()
+        let err = Pipe()
+        process.standardOutput = out
+        process.standardError = err
+        // Agent CLIs wait forever on an open stdin pipe (found in the 0.5 spike).
+        process.standardInput = FileHandle.nullDevice
+
+        // Read both pipes while the process runs, so a large output can't fill a pipe and stall it.
+        let collected = Collected()
+        let group = DispatchGroup()
+        for (pipe, isOut) in [(out, true), (err, false)] {
+            group.enter()
+            DispatchQueue.global().async {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                collected.set(data, isOut: isOut)
+                group.leave()
+            }
+        }
+
+        try process.run()
+        let deadline = Date().addingTimeInterval(timeout)
+        var timedOut = false
+        while process.isRunning {
+            if Date() > deadline {
+                timedOut = true
+                process.terminate()
+                break
+            }
+            usleep(20_000)
+        }
+        process.waitUntilExit()
+        group.wait()
+        return Result(status: process.terminationStatus, stdout: collected.out,
+                      stderr: String(decoding: collected.err, as: UTF8.self), timedOut: timedOut)
+    }
+
+    private final class Collected: @unchecked Sendable {
+        private let lock = NSLock()
+        private var outData = Data()
+        private var errData = Data()
+        var out: Data { lock.withLock { outData } }
+        var err: Data { lock.withLock { errData } }
+        func set(_ data: Data, isOut: Bool) {
+            lock.withLock { if isOut { outData = data } else { errData = data } }
+        }
+    }
+}
