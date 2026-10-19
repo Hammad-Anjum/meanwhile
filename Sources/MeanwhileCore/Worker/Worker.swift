@@ -31,10 +31,21 @@ public struct Worker: Sendable {
 
     public let library: LibraryStore
     public let lockPath: String
+    /// The question model; nil means the configured provider, created when first needed.
+    let model: QuestionModel?
+    /// Where this turn's events are read from; nil means the app's event store.
+    let events: EventStore?
+    /// The hook sends its event to the app and starts the worker at the same moment, so wait
+    /// briefly for the app to store the event before reading the turn.
+    var eventSettle: TimeInterval
 
-    public init(library: LibraryStore, lockPath: String = MeanwhilePaths.workerLock.path) {
+    public init(library: LibraryStore, lockPath: String = MeanwhilePaths.workerLock.path,
+                model: QuestionModel? = nil, events: EventStore? = nil, eventSettle: TimeInterval = 1.5) {
         self.library = library
         self.lockPath = lockPath
+        self.model = model
+        self.events = events
+        self.eventSettle = eventSettle
     }
 
     /// Queues `request` and, unless another worker holds the lock, works through the queue.
@@ -52,7 +63,8 @@ public struct Worker: Sendable {
         return processed
     }
 
-    /// One request. Task 2.0: find the repo and prove it can be read.
+    /// One request: index the repo if it's on, retire questions about changed code, prime a
+    /// newly turned-on repo, then write questions about the turn if the budget allows.
     func process(_ request: Request) throws {
         if request.reason == .turnStart, let session = request.session {
             try GenerationBudget(library: library).turnStarted(session: session)
@@ -64,11 +76,14 @@ public struct Worker: Sendable {
             if !indexed.skippedUnchanged {
                 try DocIndexer(library: library).process(root: root, newBlobs: indexed.newBlobs)
                 try HistoryIndexer(library: library).update(root: root)
+                try library.markStaleQuestions(root: root)
             }
             try library.recordStacks(StackDetector.stacks(inRepo: root), root: root)
             try library.writer.write { db in
                 try db.execute(sql: "UPDATE repo SET accessError = NULL WHERE root = ?", arguments: [root])
             }
+            try primeIfNeeded(root: root)
+            try generate(for: request, root: root)
             return
         }
         let listing = try? Shell.run("git", ["-C", root, "ls-files", "-z"], timeout: 30)
@@ -80,6 +95,60 @@ public struct Worker: Sendable {
             let reason = listing.map { $0.timedOut ? "git timed out" : $0.stderr.trimmingCharacters(in: .whitespacesAndNewlines) }
                 ?? "git could not start"
             try library.recordAccess(root: root, fileCount: nil, error: reason.isEmpty ? "not readable" : reason)
+        }
+    }
+
+    // MARK: Generation (tasks 2.6, 2.9)
+
+    /// Live questions on an edit, post-turn questions at the end of a turn: one call each per
+    /// turn, 20 a day, and only when the evidence scores at least 2.
+    func generate(for request: Request, root: String) throws {
+        let kind: (pack: EvidencePack.Kind, budget: GenerationBudget.Kind)
+        switch request.reason {
+        case .edit: kind = (.live, .live)
+        case .turnEnd: kind = (.postTurn, .postTurn)
+        case .turnStart, .manual: return
+        }
+        guard let session = request.session else { return }
+        let budget = GenerationBudget(library: library)
+        guard try budget.allows(kind.budget, session: session) else { return }
+
+        if eventSettle > 0 { Thread.sleep(forTimeInterval: eventSettle) }
+        guard let store = events ?? (try? EventStore()) else { return }
+        let turn = try store.events(inSession: session)
+        guard let pack = try EvidenceBuilder(library: library).build(kind: kind.pack, root: root, session: session, events: turn),
+              QuestionGenerator.style(forScore: pack.score) != nil else { return }
+
+        let model = self.model ?? Providers.configured()
+        let start = Date()
+        do {
+            let drafts = try QuestionGenerator(model: model).questions(from: pack)
+            try budget.record(kind.budget, provider: model.name, repo: root, session: session,
+                              succeeded: true, duration: Date().timeIntervalSince(start))
+            try library.addToPool(drafts, from: pack, kind: kind.pack.rawValue)
+        } catch {
+            try budget.record(kind.budget, provider: model.name, repo: root, session: session,
+                              succeeded: false, duration: Date().timeIntervalSince(start))
+        }
+    }
+
+    /// Once per turned-on repo: a short repo card and orientation questions from its docs.
+    func primeIfNeeded(root: String) throws {
+        guard try !library.isPrimed(root: root) else { return }
+        let budget = GenerationBudget(library: library)
+        guard try budget.allows(.primer, session: nil), let pack = try Primer(library: library, model: model ?? Providers.configured()).pack(root: root)
+        else { return }
+        let model = self.model ?? Providers.configured()
+        let start = Date()
+        do {
+            let output = try Primer(library: library, model: model).run(pack)
+            try budget.record(.primer, provider: model.name, repo: root, session: nil,
+                              succeeded: true, duration: Date().timeIntervalSince(start))
+            try library.setRepoCard(output.card, root: root)
+            try library.addToPool(output.questions, from: pack, kind: GenerationBudget.Kind.primer.rawValue)
+        } catch {
+            try budget.record(.primer, provider: model.name, repo: root, session: nil,
+                              succeeded: false, duration: Date().timeIntervalSince(start))
         }
     }
 

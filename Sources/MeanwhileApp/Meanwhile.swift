@@ -9,7 +9,8 @@ struct MeanwhileCommand: ParsableCommand {
         commandName: "meanwhile",
         abstract: "Short questions in the notch while your coding agent works.",
         version: Meanwhile.version,
-        subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Work.self, ModelCheck.self, Version.self],
+        subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Work.self, ModelCheck.self, Generate.self,
+                      Version.self],
         defaultSubcommand: Run.self
     )
 }
@@ -78,6 +79,38 @@ extension MeanwhileCommand {
                 schema: schema)
             print(String(decoding: answer, as: UTF8.self))
             print(String(format: "%@: %.1f s", model.name, Date().timeIntervalSince(start)))
+        }
+    }
+
+    /// Runs the worker for one session's latest turn and prints the pool. For checking
+    /// generation on a real repo without waiting for a turn to end.
+    struct Generate: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Generate codebase questions for a session's latest turn.", shouldDisplay: false)
+
+        @Option var repo: String
+        @Option var session: String
+        @Option(help: "post-turn or live") var kind = "post-turn"
+        @Flag(help: "Turn the repo on first.") var turnOn = false
+
+        func run() throws {
+            let library = try LibraryStore()
+            let root = StackDetector.repoRoot(for: repo)
+            if turnOn { try library.setState(.on, root: root) }
+            let before = Set(try library.poolQuestions(root: root).map(\.id))
+            let start = Date()
+            try Worker(library: library, eventSettle: 0).submit(.init(
+                directory: root, reason: kind == "live" ? .edit : .turnEnd, session: session))
+            for question in try library.poolQuestions(root: root) where !before.contains(question.id) {
+                print("[\(question.kind) · \(question.topic)] \(question.question)")
+                for (index, option) in question.options.enumerated() {
+                    print("   \(index == question.correct ? "✓" : " ") \(option)")
+                }
+                print("   quote: \(question.quote)  (\(question.sourcePath))")
+            }
+            if let card = try library.repoCard(root: root) { print("\nRepo card: \(card)") }
+            print(String(format: "\n%.1f s · %d calls today", Date().timeIntervalSince(start),
+                         try GenerationBudget(library: library).callsToday()))
         }
     }
 

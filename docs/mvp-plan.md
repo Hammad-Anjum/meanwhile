@@ -165,6 +165,15 @@ Progress:
   - **Context score:** each pack gets the score from question-engine.md.
   - **Secrets:** `Redactor` never reads secret files (`.env`, keys, certificates) and masks provider keys, tokens, JWTs, URL passwords and `password = …` style values.
   - **Fallback:** if the repo can't be read, the pack uses only the hunks from the hook events.
+- 2.6, 2.7 and 2.9 done (2026-10-19).
+  - **When the worker writes questions, through the budget:**
+    - **Live:** on the first edit of a turn.
+    - **Post-turn:** at the end of a turn, using the agent's summary.
+    - **Primer:** once when a repo is turned on, from the instruction files and READMEs. It writes a repo card and 3–5 orientation questions.
+  - **Score gate (2.9):** under 2, no question; 2–3, "spot the risk"; 4 or more, "what and why".
+  - **Validator (2.7):** the quote must appear word for word in the evidence. It also checks notch limits, 4 distinct options or True/False, one correct answer, no answer given away in the stem, and no near-duplicates.
+  - **Staleness (2.7):** pooled questions store the blob of each cited file and go stale when one changes.
+  - **First real run** on this repo (`meanwhile generate`): 2 post-turn and 5 primer questions plus an accurate repo card in 34 s (two codex calls).
 
 | # | Task | Size | Done when |
 |---|---|---|---|

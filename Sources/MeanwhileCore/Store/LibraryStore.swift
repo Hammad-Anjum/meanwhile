@@ -288,6 +288,32 @@ public final class LibraryStore: Sendable {
                 t.primaryKey(["repoId", "sha"])
             }
         }
+        // Tasks 2.6–2.7: the question pool and the primer's repo card.
+        migrator.registerMigration("v6-pool") { db in
+            try db.alter(table: "repo") { t in
+                t.add(column: "card", .text)
+                t.add(column: "primedAt", .datetime)
+            }
+            try db.create(table: "poolQuestion") { t in
+                t.primaryKey("id", .text)
+                t.column("repoId", .integer).notNull().references("repo", onDelete: .cascade).indexed()
+                t.column("kind", .text).notNull()
+                t.column("topic", .text).notNull()
+                t.column("type", .text).notNull()
+                t.column("question", .text).notNull()
+                t.column("options", .text).notNull()
+                t.column("correct", .integer).notNull()
+                t.column("explanation", .text).notNull()
+                t.column("quote", .text).notNull()
+                t.column("sourcePath", .text).notNull()
+                // JSON {path: blob}: what the question cites, for staleness.
+                t.column("evidence", .text).notNull()
+                t.column("score", .integer).notNull()
+                t.column("promptVersion", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.column("status", .text).notNull()
+            }
+        }
         return migrator
     }
 }
