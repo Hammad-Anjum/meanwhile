@@ -159,8 +159,8 @@ Two timing rules come from this diagram:
 |---|---|---|
 | Idle | Plain notch, no change | No session working |
 | Working, compact | Pulsing dot and timer on the left; question count on the right | `turn.start` |
-| Expanded | About 600 × 280 pt below the notch: question, answers, feedback | Hover to peek, click to open |
-| Needs input | Attention color, "Agent needs you"; click jumps to the terminal | `needs.input` |
+| Expanded | About 600 × 280 pt below the notch: question, answers, feedback. Static: an answer is saved on click, and nothing moves on until the user picks Next (⌃⌥↩) or a confidence | Hover to peek, click to open |
+| Needs input | Attention color, "Agent needs you"; click jumps to the terminal. Keeps what was on screen to come back to, and fades back after 20 s, since Claude Code sends no event when the user approves | `needs.input` |
 | Done | Check mark and score for about 4 s, then idle; click opens the recap | `turn.end` |
 
 ### Focus: never steal the terminal

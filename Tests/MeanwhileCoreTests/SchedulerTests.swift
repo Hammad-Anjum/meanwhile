@@ -166,6 +166,25 @@ private func scheduled(_ id: String, pack: String, topic: String = "a") -> Sched
     #expect(try store.answerCount() == 2)
 }
 
+/// A right answer is saved at the click as "fairly sure"; picking a confidence afterwards
+/// corrects that same answer instead of adding one (seen 2026-10-19: answers were lost when
+/// "needs you" interrupted before the confidence pick).
+@Test func confidenceCanBeRevisedAfterSaving() throws {
+    let store = try ReviewStore(path: nil)
+    let saved = try store.recordAnswer(cardID: "c", choice: 0, correct: true, confidence: .fairlySure, session: nil, at: now)
+    #expect(saved.after.step == 1)
+
+    let knew = try store.revise(saved, confidence: .knewIt)
+    #expect(knew.after.step == 2 && knew.after.dueAt == now.addingTimeInterval(4 * day))
+    #expect(try store.reviews()["c"]?.step == 2)
+    #expect(try store.reviews()["c"]?.timesShown == 1, "still one showing")
+    #expect(try store.answerCount() == 1)
+    #expect(try store.confidence(ofAnswer: saved.answerID) == .knewIt)
+
+    try store.revise(knew, confidence: .guessed)
+    #expect(try store.reviews()["c"]?.step == 0)
+}
+
 @Test func schedulerWorksOnTheBundledDecks() {
     let packs = PackLibrary.bundled().library.packs(disabled: [], stacks: [.swift])
     var asked: [ScheduledCard] = []

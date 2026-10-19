@@ -114,6 +114,13 @@ These find the expensive surprises first.
 
 Scope changed 2026-10-19: Codex moved here from Phase 4 because it is the default provider; starter cards ship without a hand review.
 
+Progress (2026-10-19): all seven tasks built. First live test of 1.6: the notch looks good. It showed three bugs, now fixed:
+- "Needs you" stuck through long approved commands; it now fades after 20 s.
+- Right answers were lost when "needs you" came before the confidence pick; answers are now saved on click.
+- The notch moved on by itself; it is now static.
+
+Still open: a second look at 1.6, and a real run of `meanwhile setup` (1.7).
+
 | # | Task | Size | Done when |
 |---|---|---|---|
 | 1.1 | Shared event schema plus the Claude Code and Codex adapters, tested on the 0.3 fixtures | M | Fixture tests pass |

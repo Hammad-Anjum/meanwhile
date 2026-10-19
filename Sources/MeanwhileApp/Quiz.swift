@@ -22,6 +22,7 @@ final class Quiz {
     func startWait(session: String?, cwd: String) {
         endWait()
         asked = []
+        saved = [:]
         self.session = session
         self.cwd = cwd
     }
@@ -37,16 +38,28 @@ final class Quiz {
         return QuizQuestion(card: pick.card, deck: pick.deckTitle, topic: topic)
     }
 
-    /// Records an answer and returns when the card comes back. A wrong answer has no
-    /// confidence; it starts over at one day either way.
-    func record(_ question: QuizQuestion, _ answer: NotchModel.Answer, confidence: Confidence?) -> String {
+    /// Saved answers by card, so a confidence picked later corrects the same answer.
+    private var saved: [String: ReviewStore.RecordedAnswer] = [:]
+
+    /// Saves an answer the moment it is given and returns when the card comes back. A right
+    /// answer is saved as "fairly sure" until the user picks a confidence; a wrong answer
+    /// starts over at one day either way.
+    func record(_ question: QuizQuestion, _ answer: NotchModel.Answer) -> String {
         guard let id = question.cardID else { return "later" }
         if open == id { open = nil }
-        let now = Date()
-        guard let review = try? reviews?.recordAnswer(
+        guard let recorded = try? reviews?.recordAnswer(
             cardID: id, choice: answer.choice, correct: answer.correct,
-            confidence: confidence ?? .guessed, session: session, at: now) else { return "later" }
-        return Spacing.comesBack(review, from: now)
+            confidence: answer.correct ? .fairlySure : .guessed, session: session, at: Date()) else { return "later" }
+        saved[id] = recorded
+        return Spacing.comesBack(recorded.after, from: recorded.at)
+    }
+
+    /// Applies the confidence the user picked to the answer already saved for `question`.
+    func revise(_ question: QuizQuestion, confidence: Confidence) -> String {
+        guard let id = question.cardID, let recorded = saved[id],
+              let revised = try? reviews?.revise(recorded, confidence: confidence) else { return "later" }
+        saved[id] = revised
+        return Spacing.comesBack(revised.after, from: revised.at)
     }
 
     func skipped(_ question: QuizQuestion) {

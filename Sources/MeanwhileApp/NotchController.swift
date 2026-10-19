@@ -50,8 +50,8 @@ struct RecapItem: Identifiable, Equatable {
     let id = UUID()
     let question: QuizQuestion
     let correct: Bool
-    /// "tomorrow", "in 4 days".
-    let comesBack: String
+    /// "tomorrow", "in 4 days". Updated if a confidence is picked after the answer.
+    var comesBack: String
 }
 
 /// Everything the notch views draw. The controller changes it; the views only read it.
@@ -115,17 +115,21 @@ final class NotchController {
     /// The next question for this wait, or nil when there is none.
     var nextQuestion: (() -> QuizQuestion?)?
     /// Records an answer (with confidence when it was right); returns when the card comes back.
-    var onRecord: ((QuizQuestion, NotchModel.Answer, Confidence?) -> String)?
+    var onRecord: ((QuizQuestion, NotchModel.Answer) -> String)?
+    /// Applies a confidence picked after the answer was saved; returns when the card comes back.
+    var onRevise: ((QuizQuestion, Confidence) -> String)?
     /// The user skipped the question on screen.
     var onSkip: ((QuizQuestion) -> Void)?
 
     private var notch: DynamicNotch<NotchExpandedView, NotchCompactLeading, NotchCompactTrailing>?
     private var transitionTask: Task<Void, Never>?
-    /// Auto-advance or auto-hide timer; replaced by any user action.
+    /// The short pause after a confidence pick, and the recap's timers. Questions themselves
+    /// never move on by a timer: only the user moves on.
     private var pendingTask: Task<Void, Never>?
 
     init() {
         Hotkeys.shared.onAnswer = { [weak self] index in self?.hotkey(index) }
+        Hotkeys.shared.onNext = { [weak self] in self?.next() }
     }
 
     // MARK: Agent turn
@@ -144,7 +148,8 @@ final class NotchController {
         advance()
     }
 
-    /// The agent is waiting on the user: step back to the attention state.
+    /// The agent is waiting on the user: step back to the attention state. What was on
+    /// screen is kept exactly as it was, to come back to.
     func needsInput() {
         model.status = .needsInput
         Hotkeys.shared.disable()
@@ -152,23 +157,28 @@ final class NotchController {
         showCompact()
     }
 
-    /// The agent carried on after needing the user.
+    /// The agent carried on after needing the user: back to what was on screen.
     func resume() {
         model.status = .working
-        if case .question(let state) = model.content, state.answer == nil {
+        switch model.content {
+        case .question, .recap:
+            Hotkeys.shared.enable()
             showExpanded()
-        } else {
+        case .enough:
+            showCompact()
+        case .nothing:
             advance()
         }
     }
 
-    /// The turn ended. An unanswered question stays (with a banner) so it can be finished.
+    /// The turn ended. A question on screen stays until the user moves on (with a banner
+    /// if it is unanswered); then the recap.
     func finish() {
         model.status = .done
         model.turnEnded = Date()
-        if case .question(let state) = model.content, state.answer == nil {
+        if case .question = model.content {
             showExpanded()
-        } else if !model.isAwaitingConfidence {
+        } else {
             showRecapOrDone()
         }
     }
@@ -197,40 +207,39 @@ final class NotchController {
 
     // MARK: User actions
 
+    /// Saves the answer at once (a right one as "fairly sure" until a confidence is picked)
+    /// and stays on the feedback until the user moves on.
     func answer(_ choice: Int?) {
         guard case .question(var state) = model.content, state.answer == nil else { return }
-        let correct = choice == state.question.correct
-        state.answer = NotchModel.Answer(choice: choice, correct: correct)
+        let answer = NotchModel.Answer(choice: choice, correct: choice == state.question.correct)
+        state.answer = answer
         model.content = .question(state)
-        if correct {
-            // Ask how sure; a quiet default if the user doesn't pick within a while.
-            schedule(after: 12) { [weak self] in self?.choose(.fairlySure) }
-        } else {
-            Hotkeys.shared.disable()
-            record(state, confidence: nil)
-            schedule(after: 8) { [weak self] in self?.moveOn() }
-        }
+        let comesBack = onRecord?(state.question, answer) ?? "later"
+        model.results.append(RecapItem(question: state.question, correct: answer.correct, comesBack: comesBack))
     }
 
+    /// A confidence pick corrects the saved answer, then moves on: picking is the user acting.
     func choose(_ confidence: Confidence) {
         guard case .question(var state) = model.content, state.answer?.correct == true, state.confidence == nil else { return }
         state.confidence = confidence
         model.content = .question(state)
-        Hotkeys.shared.disable()
-        record(state, confidence: confidence)
+        let comesBack = onRevise?(state.question, confidence) ?? "later"
+        if let index = model.results.lastIndex(where: { $0.question == state.question }) {
+            model.results[index].comesBack = comesBack
+        }
         schedule(after: 0.6) { [weak self] in self?.moveOn() }
     }
 
     /// Skip (before answering) or Next (after).
     func skipOrNext() {
         guard case .question(let state) = model.content else { return }
-        if state.answer == nil {
-            onSkip?(state.question)
-        } else if state.answer?.correct == true, state.confidence == nil {
-            choose(.fairlySure)
-            return
-        }
+        if state.answer == nil { onSkip?(state.question) }
         moveOn()
+    }
+
+    /// ⌃⌥↩: Next once the question is answered. Skipping stays a deliberate click.
+    private func next() {
+        if case .question(let state) = model.content, state.answer != nil { skipOrNext() }
     }
 
     /// Click on the compact notch: open whatever there is to see.
@@ -253,12 +262,6 @@ final class NotchController {
     }
 
     // MARK: Flow
-
-    private func record(_ state: NotchModel.QuestionState, confidence: Confidence?) {
-        guard let answer = state.answer else { return }
-        let comesBack = onRecord?(state.question, answer, confidence) ?? "later"
-        model.results.append(RecapItem(question: state.question, correct: answer.correct, comesBack: comesBack))
-    }
 
     /// After a question: the next one, the recap if the agent is done, or compact.
     private func moveOn() {

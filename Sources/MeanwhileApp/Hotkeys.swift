@@ -1,14 +1,17 @@
 import Carbon.HIToolbox
 
-/// Global ⌃⌥1–4 to answer the notch question without the mouse or moving focus.
-/// Carbon hot keys need no Accessibility permission, unlike a global key monitor.
+/// Global ⌃⌥1–4 to answer (or pick a confidence) and ⌃⌥↩ for Next, without the mouse or
+/// moving focus. Carbon hot keys need no Accessibility permission, unlike a global key monitor.
 /// Registered only while a question is open, so other apps keep these keys otherwise.
 @MainActor
 final class Hotkeys {
     static let shared = Hotkeys()
+    private static let nextID: UInt32 = 100
 
     /// Called with the answer index (0–3).
     var onAnswer: ((Int) -> Void)?
+    /// Called for ⌃⌥↩.
+    var onNext: (() -> Void)?
     private var refs: [EventHotKeyRef] = []
 
     private init() {
@@ -17,18 +20,20 @@ final class Hotkeys {
             var id = EventHotKeyID()
             GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                               nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
-            let index = Int(id.id)
-            MainActor.assumeIsolated { Hotkeys.shared.onAnswer?(index) }
+            let pressed = id.id
+            MainActor.assumeIsolated {
+                if pressed == Hotkeys.nextID { Hotkeys.shared.onNext?() } else { Hotkeys.shared.onAnswer?(Int(pressed)) }
+            }
             return noErr
         }, 1, &spec, nil, nil)
     }
 
     func enable() {
         guard refs.isEmpty else { return }
-        let keys = [kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4]
-        for (index, key) in keys.enumerated() {
+        let keys = [(kVK_ANSI_1, 0), (kVK_ANSI_2, 1), (kVK_ANSI_3, 2), (kVK_ANSI_4, 3), (kVK_Return, Int(Self.nextID))]
+        for (key, number) in keys {
             var ref: EventHotKeyRef?
-            let id = EventHotKeyID(signature: OSType(0x4D57_4851), id: UInt32(index)) // "MWHQ"
+            let id = EventHotKeyID(signature: OSType(0x4D57_4851), id: UInt32(number)) // "MWHQ"
             let status = RegisterEventHotKey(
                 UInt32(key), UInt32(controlKey | optionKey), id,
                 GetApplicationEventTarget(), 0, &ref

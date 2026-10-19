@@ -56,18 +56,21 @@ struct NotchExpandedView: View {
             Text(hint).font(.caption2).foregroundStyle(NotchColor.muted)
             Spacer()
             if case .question(let state) = model.content {
-                Button(state.answer == nil ? "Skip" : "Next") { controller?.skipOrNext() }
-                    .buttonStyle(.plain)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(NotchColor.muted)
+                // Nothing moves on by itself: after answering, the user reads, then picks Next.
+                Button(state.answer == nil ? "Skip" : model.status == .done ? "See recap" : "Next") {
+                    controller?.skipOrNext()
+                }
+                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(state.answer == nil ? NotchColor.muted : NotchColor.accent)
             }
         }
     }
 
     private var hint: String {
         guard case .question(let state) = model.content else { return "" }
-        if model.isAwaitingConfidence { return "⌃⌥1–3 to say how sure" }
-        return state.answer == nil ? "Click or press ⌃⌥1–\(state.question.options.count)" : ""
+        if model.isAwaitingConfidence { return "⌃⌥1–3 how sure · ⌃⌥↩ next" }
+        return state.answer == nil ? "Click or press ⌃⌥1–\(state.question.options.count)" : "⌃⌥↩ next"
     }
 }
 

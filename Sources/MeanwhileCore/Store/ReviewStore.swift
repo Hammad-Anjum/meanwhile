@@ -31,11 +31,20 @@ public final class ReviewStore: Sendable {
         return Dictionary(uniqueKeysWithValues: rows.map { ($0.cardID, $0.review) })
     }
 
-    /// Logs an answer and moves the card's spacing. Returns the updated review.
+    /// A saved answer, kept so its confidence can still be changed.
+    public struct RecordedAnswer: Sendable, Equatable {
+        public let answerID: Int64
+        public let before: Review
+        public let after: Review
+        public let correct: Bool
+        public let at: Date
+    }
+
+    /// Logs an answer and moves the card's spacing.
     /// - Parameter choice: the chosen option, or nil for "I don't know, show me".
     @discardableResult
     public func recordAnswer(cardID: String, choice: Int?, correct: Bool, confidence: Confidence,
-                             session: String?, at now: Date = Date()) throws -> Review {
+                             session: String?, at now: Date = Date()) throws -> RecordedAnswer {
         try writer.write { db in
             let current = try ReviewRecord.fetchOne(db, key: cardID)?.review ?? Review(cardID: cardID)
             let next = Spacing.answered(current, correct: correct, confidence: confidence, at: now)
@@ -46,7 +55,29 @@ public final class ReviewStore: Sendable {
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                 arguments: [cardID, now, choice ?? -1, correct, confidence != .guessed, confidence.rawValue, session])
-            return next
+            return RecordedAnswer(answerID: db.lastInsertedRowID, before: current, after: next, correct: correct, at: now)
+        }
+    }
+
+    /// Changes a saved answer's confidence (the user picked it after the answer was saved),
+    /// re-spacing the card from where it was before that answer.
+    @discardableResult
+    public func revise(_ answer: RecordedAnswer, confidence: Confidence) throws -> RecordedAnswer {
+        try writer.write { db in
+            let next = Spacing.answered(answer.before, correct: answer.correct, confidence: confidence, at: answer.at)
+            try ReviewRecord(next).save(db)
+            try db.execute(sql: "UPDATE answer SET confident = ?, confidence = ? WHERE id = ?",
+                           arguments: [confidence != .guessed, confidence.rawValue, answer.answerID])
+            return RecordedAnswer(answerID: answer.answerID, before: answer.before, after: next,
+                                  correct: answer.correct, at: answer.at)
+        }
+    }
+
+    /// The confidence stored with an answer; for tests and stats.
+    public func confidence(ofAnswer id: Int64) throws -> Confidence? {
+        try writer.read {
+            try String.fetchOne($0, sql: "SELECT confidence FROM answer WHERE id = ?", arguments: [id])
+                .flatMap(Confidence.init(rawValue:))
         }
     }
 
