@@ -8,9 +8,18 @@ public struct PackLibrary: Sendable {
         self.packs = packs.sorted { ($0.kind.rawValue, $0.title) < ($1.kind.rawValue, $1.title) }
     }
 
+    /// The SwiftPM resource bundle, looked up next to the executable first. Under launchd
+    /// (`meanwhile setup`'s login item) SwiftPM's generated `Bundle.module` traps on a nil
+    /// `Bundle.main.bundleURL` (seen 2026-10-19); tests run inside xctest and use `Bundle.module`.
+    static var resources: Bundle {
+        let executable = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0]).resolvingSymlinksInPath()
+        let beside = executable.deletingLastPathComponent().appendingPathComponent("MeanwhileKit_MeanwhileCore.bundle")
+        return Bundle(url: beside) ?? Bundle.module
+    }
+
     /// The packs that ship with Meanwhile. Invalid files are skipped and reported in `failures`.
     public static func bundled() -> (library: PackLibrary, failures: [String]) {
-        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Packs") ?? []
+        let urls = resources.urls(forResourcesWithExtension: "json", subdirectory: "Packs") ?? []
         var packs: [Pack] = []
         var failures: [String] = []
         for url in urls {
