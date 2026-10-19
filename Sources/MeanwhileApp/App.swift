@@ -155,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notch.onRecord = { [quiz] question, answer in quiz.record(question, answer) }
         notch.onRevise = { [quiz] question, confidence in quiz.revise(question, confidence: confidence) }
         notch.onSkip = { [quiz] question in quiz.skipped(question) }
+        notch.onReport = { [quiz] question in quiz.report(question) }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -170,7 +171,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.handle(events.compactMap { self.tracker.apply($0) })
             // After the transitions, so a new turn's wait exists before its edits are noted.
-            self.quiz.note(events)
+            if let outcome = self.quiz.note(events) {
+                self.notch.resolvePrediction(correct: outcome.correct, note: outcome.note)
+            }
         }
         var ticks = 0
         tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -207,7 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 notch.resume()
             case (_, .working):
                 let cwd = state?.cwd ?? FileManager.default.currentDirectoryPath
-                quiz.startWait(session: transition.session, cwd: cwd)
+                quiz.startWait(session: transition.session, cwd: cwd, prompt: state?.lastPrompt)
                 notch.startTurn(agent: state?.agent ?? .claude, repo: quiz.repoName(for: cwd),
                                 since: state?.turnStartedAt ?? Date(), limit: quiz.limitPerWait)
             case (_, .needsInput):

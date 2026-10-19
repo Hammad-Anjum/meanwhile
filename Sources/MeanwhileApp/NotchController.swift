@@ -11,8 +11,11 @@ struct QuizQuestion: Equatable {
     var topic: String?
     let text: String
     let options: [String]
-    let correct: Int
+    /// For a prediction, -1 until the agent's work answers it.
+    var correct: Int
     var explanation: String?
+    /// Set for prediction questions (task 2.10): no right answer until the agent acts.
+    var prediction: Prediction.Kind?
     /// Why it was picked, one short grey line under the deck chip (task 2.8).
     var why: String?
 
@@ -23,7 +26,7 @@ struct QuizQuestion: Equatable {
     }
 
     init(cardID: String? = nil, deck: String, topic: String? = nil, text: String, options: [String],
-         correct: Int, explanation: String? = nil) {
+         correct: Int, explanation: String? = nil, prediction: Prediction.Kind? = nil) {
         self.cardID = cardID
         self.deck = deck
         self.topic = topic
@@ -31,6 +34,7 @@ struct QuizQuestion: Equatable {
         self.options = options
         self.correct = correct
         self.explanation = explanation
+        self.prediction = prediction
     }
 
     init(card: Card, deck: String, topic: String?) {
@@ -79,6 +83,8 @@ final class NotchModel: ObservableObject {
         var question: QuizQuestion
         var answer: Answer?
         var confidence: Confidence?
+        /// A prediction's pick, waiting for the agent to answer it.
+        var lockedChoice: Int?
     }
 
     enum Content: Equatable {
@@ -116,7 +122,8 @@ final class NotchModel: ObservableObject {
     }
 
     var isAwaitingConfidence: Bool {
-        if case .question(let state) = content, state.answer?.correct == true, state.confidence == nil { return true }
+        if case .question(let state) = content, state.question.prediction == nil,
+           state.answer?.correct == true, state.confidence == nil { return true }
         return false
     }
 }
@@ -139,6 +146,10 @@ final class NotchController {
     var onRevise: ((QuizQuestion, Confidence) -> String)?
     /// The user skipped the question on screen.
     var onSkip: ((QuizQuestion) -> Void)?
+    /// "Report wrong question" (task 2.10).
+    var onReport: ((QuizQuestion) -> Void)?
+    /// A prediction picked and waiting for the agent: (question, choice).
+    private var pendingPrediction: (question: QuizQuestion, choice: Int)?
 
     private var notch: DynamicNotch<NotchExpandedView, NotchCompactLeading, NotchCompactTrailing>?
     private var transitionTask: Task<Void, Never>?
@@ -155,6 +166,7 @@ final class NotchController {
 
     /// A new agent turn: reset the wait and show its first question.
     func startTurn(agent: AgentEvent.Agent, repo: String, since: Date, limit: Int) {
+        pendingPrediction = nil
         model.status = .working
         model.agentName = agent == .codex ? "Codex" : agent == .cursor ? "Cursor" : "Claude Code"
         model.repo = repo
@@ -231,6 +243,14 @@ final class NotchController {
     /// and stays on the feedback until the user moves on.
     func answer(_ choice: Int?) {
         guard case .question(var state) = model.content, state.answer == nil else { return }
+        if state.question.prediction != nil {
+            // A prediction: lock the pick in; the agent's work answers it later.
+            guard state.lockedChoice == nil, let choice else { return }
+            state.lockedChoice = choice
+            model.content = .question(state)
+            pendingPrediction = (state.question, choice)
+            return
+        }
         let answer = NotchModel.Answer(choice: choice, correct: choice == state.question.correct)
         state.answer = answer
         model.content = .question(state)
@@ -250,16 +270,41 @@ final class NotchController {
         schedule(after: 0.6) { [weak self] in self?.moveOn() }
     }
 
-    /// Skip (before answering) or Next (after).
+    /// Skip (before answering) or Next (after, or after locking in a prediction).
     func skipOrNext() {
         guard case .question(let state) = model.content else { return }
-        if state.answer == nil { onSkip?(state.question) }
+        if state.answer == nil, state.lockedChoice == nil { onSkip?(state.question) }
         moveOn()
     }
 
     /// ⌃⌥↩: Next once the question is answered. Skipping stays a deliberate click.
     private func next() {
-        if case .question(let state) = model.content, state.answer != nil { skipOrNext() }
+        if case .question(let state) = model.content, state.answer != nil || state.lockedChoice != nil { skipOrNext() }
+    }
+
+    /// The agent's work answered a prediction. `correct` is the option it matches, or nil when
+    /// it went another way; `note` says what happened. Shown if still on screen; the recap either way.
+    func resolvePrediction(correct: Int?, note: String) {
+        guard let pending = pendingPrediction else { return }
+        pendingPrediction = nil
+        var question = pending.question
+        question.correct = correct ?? -1
+        question.explanation = note
+        let right = correct == pending.choice
+        model.results.append(RecapItem(question: question, correct: right, comesBack: "prediction"))
+        if case .question(var state) = model.content, state.question.prediction == question.prediction,
+           state.lockedChoice == pending.choice, state.answer == nil {
+            state.question = question
+            state.answer = NotchModel.Answer(choice: pending.choice, correct: right)
+            model.content = .question(state)
+        }
+    }
+
+    /// "Report wrong question": retire it, then move on.
+    func reportWrong() {
+        guard case .question(let state) = model.content, state.question.prediction == nil else { return }
+        onReport?(state.question)
+        moveOn()
     }
 
     /// Click on the compact notch: open whatever there is to see.

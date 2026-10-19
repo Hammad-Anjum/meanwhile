@@ -72,8 +72,9 @@ struct NotchExpandedView: View {
     private var hint: String {
         if case .optIn = model.content { return "Click or press ⌃⌥1–3" }
         guard case .question(let state) = model.content else { return "" }
-        if model.isAwaitingConfidence { return "⌃⌥1–3 how sure · ⌃⌥↩ next" }
-        return state.answer == nil ? "Click or press ⌃⌥1–\(state.question.options.count)" : "⌃⌥↩ next"
+        if model.isAwaitingConfidence, state.question.prediction == nil { return "⌃⌥1–3 how sure · ⌃⌥↩ next" }
+        return state.answer == nil && state.lockedChoice == nil
+            ? "Click or press ⌃⌥1–\(state.question.options.count)" : "⌃⌥↩ next"
     }
 }
 
@@ -139,11 +140,17 @@ struct QuestionView: View {
                 VStack(spacing: 6) { options }
             }
 
-            if state.answer == nil {
-                Button("I don’t know, show me") { controller?.answer(nil) }
-                    .buttonStyle(.plain)
+            if state.answer == nil, state.lockedChoice != nil {
+                Text("Locked in. The agent’s work will answer this.")
                     .font(.caption)
-                    .foregroundStyle(NotchColor.muted)
+                    .foregroundStyle(NotchColor.accent)
+            } else if state.answer == nil {
+                if state.question.prediction == nil {
+                    Button("I don’t know, show me") { controller?.answer(nil) }
+                        .buttonStyle(.plain)
+                        .font(.caption)
+                        .foregroundStyle(NotchColor.muted)
+                }
             } else {
                 feedback
             }
@@ -153,12 +160,12 @@ struct QuestionView: View {
     private var options: some View {
         ForEach(Array(state.question.options.enumerated()), id: \.offset) { index, option in
             OptionRow(index: index, label: option, look: look(index)) { controller?.answer(index) }
-                .disabled(state.answer != nil)
+                .disabled(state.answer != nil || state.lockedChoice != nil)
         }
     }
 
     private func look(_ index: Int) -> OptionRow.Look {
-        guard let answer = state.answer else { return .open }
+        guard let answer = state.answer else { return state.lockedChoice == index ? .locked : .open }
         if index == state.question.correct { return .right }
         if index == answer.choice { return .wrong }
         return .dim
@@ -167,7 +174,8 @@ struct QuestionView: View {
     @ViewBuilder private var feedback: some View {
         if let answer = state.answer {
             VStack(alignment: .leading, spacing: 8) {
-                Text(answer.correct ? "Right" : answer.choice == nil ? "Here’s the answer" : "Not quite")
+                Text(state.question.prediction != nil ? (answer.correct ? "You called it" : "Not this time")
+                     : answer.correct ? "Right" : answer.choice == nil ? "Here’s the answer" : "Not quite")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(answer.correct ? NotchColor.right : answer.choice == nil ? NotchColor.text : NotchColor.wrong)
                 if let explanation = state.question.explanation {
@@ -176,7 +184,7 @@ struct QuestionView: View {
                         .foregroundStyle(NotchColor.text.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if answer.correct {
+                if answer.correct, state.question.prediction == nil {
                     HStack(spacing: 6) {
                         ForEach(Array(Confidence.allCases.enumerated()), id: \.offset) { index, level in
                             ConfidenceButton(index: index, level: level, chosen: state.confidence) {
@@ -188,12 +196,18 @@ struct QuestionView: View {
             }
             .padding(10)
             .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+            if state.question.prediction == nil, state.question.cardID != nil {
+                Button("Report wrong question") { controller?.reportWrong() }
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(NotchColor.muted)
+            }
         }
     }
 }
 
 struct OptionRow: View {
-    enum Look { case open, right, wrong, dim }
+    enum Look { case open, right, wrong, dim, locked }
 
     let index: Int
     let label: String
@@ -212,6 +226,7 @@ struct OptionRow: View {
                 switch look {
                 case .right: Image(systemName: "checkmark.circle.fill").foregroundStyle(NotchColor.right)
                 case .wrong: Image(systemName: "xmark.circle.fill").foregroundStyle(NotchColor.wrong)
+                case .locked: Image(systemName: "lock.fill").foregroundStyle(NotchColor.accent)
                 case .open, .dim: EmptyView()
                 }
             }
@@ -228,6 +243,7 @@ struct OptionRow: View {
         switch look {
         case .right: NotchColor.right.opacity(0.18)
         case .wrong: NotchColor.wrong.opacity(0.18)
+        case .locked: NotchColor.accent.opacity(0.22)
         case .open, .dim: .white.opacity(0.08)
         }
     }

@@ -121,6 +121,13 @@ public final class ReviewStore: Sendable {
                 t.add(column: "confidence", .text)
             }
         }
+        // Task 2.10: deck cards the user reported as wrong; never shown again.
+        migrator.registerMigration("v4-suppressed") { db in
+            try db.create(table: "suppressed") { t in
+                t.primaryKey("cardID", .text)
+                t.column("reportedAt", .datetime).notNull()
+            }
+        }
         // Task 2.8: every question shown, its outcome and why it was picked, for tuning.
         migrator.registerMigration("v3-shown") { db in
             try db.create(table: "shown") { t in
@@ -190,6 +197,17 @@ public final class ReviewStore: Sendable {
                 """, arguments: [date])
             return Dictionary(uniqueKeysWithValues: rows.map { ($0["cardID"] as String, $0["n"] as Int) })
         }
+    }
+
+    /// "This question is wrong" on a deck card: it never shows again (task 2.10).
+    public func suppress(cardID: String, at now: Date = Date()) throws {
+        try writer.write { db in
+            try db.execute(sql: "INSERT OR REPLACE INTO suppressed (cardID, reportedAt) VALUES (?, ?)", arguments: [cardID, now])
+        }
+    }
+
+    public func suppressed() throws -> Set<String> {
+        try writer.read { Set(try String.fetchAll($0, sql: "SELECT cardID FROM suppressed")) }
     }
 
     /// Share right over the last `count` answers; nil with fewer than `minimum`.

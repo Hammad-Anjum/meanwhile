@@ -179,6 +179,14 @@ Progress:
   - **Score:** 0.40 Need + 0.35 CodeRelevance + 0.15 DeckFit + 0.10 Novelty, plus the difficulty controller.
   - **Tuning against the plan:** new cards get no Need, and due cards at least 0.5. That way due reviews outrank new deck cards (the 1.5 rule), while fresh codebase questions about touched code still lead.
   - **In the notch and the log:** the grey reason line under the deck chip. Every display goes into `shown` with its outcome, latency and score terms.
+- 2.10 done (2026-10-19).
+  - **Predictions:** the first question of a wait in a turned-on repo.
+    - "Which file will the agent change first?" offers the 4 files the prompt points at, using the file map, no model.
+    - Otherwise, "Will the tests pass on the agent's first run?"
+    - You lock in an answer. The agent's first edit or first test run settles it: "You called it" / "Not this time", also in the recap.
+    - Predictions never enter spaced repetition.
+  - **"Report wrong question":** retires a codebase question or hides a deck card for good, and logs the report.
+  - **Not built:** the plan's "pause a generator run after more than 2 reports". Runs aren't tracked yet; the shown log has what's needed to add it.
 
 | # | Task | Size | Done when |
 |---|---|---|---|

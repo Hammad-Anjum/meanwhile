@@ -62,6 +62,8 @@ public struct QuestionSelector: Sendable {
         public var deckStats: [String: DeckStats] = [:]
         /// Skips per question in the last 7 days.
         public var recentSkips: [String: Int] = [:]
+        /// Reported as wrong: never shown again (task 2.10).
+        public var suppressed: Set<String> = []
         public var askedThisWait: [Candidate] = []
         /// The agent edited code this turn: guarantees one codebase question if one fits.
         public var agentTouchedCode = false
@@ -92,7 +94,8 @@ public struct QuestionSelector: Sendable {
 
         // 1. Rules that remove a candidate outright.
         var eligible = candidates.filter { candidate in
-            guard !asked.contains(candidate.id), (context.recentSkips[candidate.id] ?? 0) < 2 else { return false }
+            guard !asked.contains(candidate.id), !context.suppressed.contains(candidate.id),
+                  (context.recentSkips[candidate.id] ?? 0) < 2 else { return false }
             if let review = context.reviews[candidate.id], let shown = review.lastShown,
                context.now.timeIntervalSince(shown) < minimumGap, !isDue(review, context.now) { return false }
             return true

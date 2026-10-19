@@ -86,6 +86,15 @@ extension LibraryStore {
         }
     }
 
+    /// All tracked file paths of a repo, for prediction options.
+    public func filePaths(root: String) throws -> [String] {
+        try writer.read { db in
+            try String.fetchAll(db, sql: """
+                SELECT f.path FROM fileEntry f JOIN repo r ON r.id = f.repoId WHERE r.root = ?
+                """, arguments: [root])
+        }
+    }
+
     public func setStatus(_ status: PoolQuestion.Status, question id: String) throws {
         try writer.write { db in
             try db.execute(sql: "UPDATE poolQuestion SET status = ? WHERE id = ?", arguments: [status.rawValue, id])

@@ -77,12 +77,12 @@
 <main>
 
 <h1>Meanwhile: progress</h1>
-<p class="sub">Last updated 2026-10-19 · Phase 2 in progress (2.0–2.9 done) · <a href="phase2-plan.md">plan</a> · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
+<p class="sub">Last updated 2026-10-19 · Phase 2 in progress (2.0–2.10 done) · <a href="phase2-plan.md">plan</a> · Open this file in a browser. The diagrams need internet access to render (Mermaid from a CDN).</p>
 
 <div class="stats">
   <div class="stat"><b>7 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:100%"></i></div></div>
-  <div class="stat"><b>24 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:59%"></i></div></div>
-  <div class="stat"><b>141 / 141</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="stat"><b>25 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:61%"></i></div></div>
+  <div class="stat"><b>147 / 147</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
 
@@ -120,9 +120,11 @@ flowchart LR
     STORE[(Event store · SQLite<br/>raw lines + events, 30 days)]
     SESS[Session tracker<br/>idle · working · needs input · done<br/>needs input fades after 5 s]
     SCH[Selection v2<br/>rules · Need · CodeRelevance · DeckFit · Novelty<br/>why-this line · 3 per wait]
-    NOTCH[Notch UI<br/>compact: timer · count · needs you · done<br/>expanded: question · feedback · confidence · recap<br/>static: moves on only when you pick Next]
+    NOTCH[Notch UI<br/>compact: timer · count · needs you · done<br/>expanded: question · feedback · confidence · recap<br/>predictions · report wrong · static]
     HK[Hotkeys ⌃⌥1–4 · ⌃⌥↩ next]
     AD -- events --> SESS
+    AD -- first edit · first test run --> PRED[Predictions<br/>which file first · tests pass]
+    PRED --> NOTCH
     PACKS[(6 bundled decks<br/>3 generic · 3 stack)]
     DET[Stack detector<br/>run by the worker; app reads stacks from library]
     PACKS --> DECKS[Decks<br/>enabled for this repo]
@@ -196,6 +198,7 @@ flowchart TB
     EVB["Questions/ · EvidenceBuilder · Redactor<br/>budget · code around edits · context score"]
     QG["Questions/ · QuestionGenerator · Primer<br/>prompt q1 · JSON schema · score gate"]
     QV["Questions/ · QuestionValidator · QuestionPool<br/>quote check · dedupe · staleness"]
+    PRD["Questions/ · Prediction<br/>fileOptions · isTestCommand · resolve"]
     STO["Store/ · EventStore<br/>ingest() · events() · prune()"]
     TRK["Sessions/ · SessionTracker<br/>apply(event) · tick(now) → SessionTransition"]
     PK["Packs/ · Pack · Card · PackLibrary<br/>bundled() · packs(forDirectory:)"]
@@ -238,6 +241,7 @@ flowchart TB
     T15[DocHistoryTests]
     T16[EvidenceTests]
     T18[SelectorTests]
+    T19[PredictionTests]
     T17[GeneratorTests]
     FX[(Fixtures/*.ndjson)]
   end
@@ -292,6 +296,8 @@ flowchart TB
   RS -. tested by .-> T9
   QZ -- pool questions · history --> LIBS
   SCHD -. tested by .-> T18
+  QZ --> PRD
+  PRD -. tested by .-> T19
   NC --> NM
   NC --> HKS
   NC --> DNK
@@ -372,7 +378,9 @@ flowchart LR
   IDX -- blob changed → stale --> POOL
   POOL --> SEL[Selection v2<br/>rules · Need · CodeRelevance · DeckFit · Novelty]
   SEL -- why-this line --> NO[Notch]
-  NO -.-> RW[Report wrong · predictions]:::planned
+  NO -- report wrong --> POOL
+  EV -- first edit · first test run --> PRD[Predictions]
+  PRD --> NO
   NO -- opt-in per repo: Yes · Not now · Never --> LIB[(library.sqlite)]
   WK -- repo · stacks --> LIB
   classDef planned stroke-dasharray: 5 4,opacity:0.55
@@ -424,8 +432,8 @@ flowchart LR
   <tr><td>2.7</td><td>Validator (quote word for word, notch limits, one answer, no giveaway, no duplicate) and staleness on blob change</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>2.8</td><td>Selection v2 over deck cards and pooled codebase questions: rules, weighted score, difficulty controller, 'why this' line, shown log</td><td>M</td><td><span class="pill done">Done</span></td></tr>
   <tr><td>2.9</td><td>Context score gate: under 2 no question; 2–3 spot the risk; 4+ what and why</td><td>S</td><td><span class="pill done">Done</span></td></tr>
-  <tr><td>2.10</td><td>Predictions and 'this question is wrong'</td><td>M</td><td><span class="pill next">Next</span></td></tr>
-  <tr><td>2.11</td><td>Symbols and repo map</td><td>L</td><td><span class="pill todo">To do</span></td></tr>
+  <tr><td>2.10</td><td>Predictions ('which file first?', 'tests pass first run?') answered live by the agent's work; 'Report wrong question' retires codebase questions and hides deck cards</td><td>M</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td>2.11</td><td>Symbols and repo map</td><td>L</td><td><span class="pill next">Next</span></td></tr>
 </table>
 </div>
 
@@ -453,6 +461,7 @@ flowchart LR
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>2.10 done: predictions as the first question of a wait in a turned-on repo ('Which file will the agent change first?' from the prompt and the file map, else 'Will the tests pass on the first run?'), locked in and answered by the agent's first edit or test run; one-off, never reviewed. 'Report wrong question' retires a codebase question or hides a deck card for good.</td><td>Labels updated</td></tr>
   <tr><td>2026-10-19</td><td>2.8 done: <code>QuestionSelector</code> picks from deck cards and pooled codebase questions with hard rules (no repeats, skipped twice → 7 days, 30-minute gap, no same deck or file twice in a row, at least one codebase question when the agent edited code) and the weighted score; due reviews outrank new deck cards, fresh codebase questions lead. The notch shows the reason line; every display is logged with outcome, latency and score terms. Also: the hook's socket send now allows up to 4 s for large events.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>2.6, 2.7, 2.9 done: the worker generates live (first edit), post-turn (turn end) and primer questions through codex within budget; <code>QuestionValidator</code> keeps only questions whose quote is word for word in the evidence, that fit the notch and have one answer; pooled questions go stale when a cited file changes; the context score gates generation. First real run on this repo: 2 post-turn and 5 primer questions plus a repo card in 34 s (two codex calls).</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>2.5 done: <code>EvidenceBuilder</code> turns a turn's events plus the index into a pack of at most 6,000 tokens (prompt, edit hunks with the code around them, the agent's summary, docs and commits on the edited files, related reads) with the context score. <code>Redactor</code> never reads secret files and masks keys, tokens, JWTs, URL passwords and secret assignments. Unreadable repos fall back to hook content.</td><td>Labels updated</td></tr>

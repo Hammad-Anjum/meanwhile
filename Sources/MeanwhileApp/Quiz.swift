@@ -19,6 +19,12 @@ final class Quiz {
     private var open: (id: String, shown: Int64?)?
     /// The opt-in card is offered at most once per wait.
     private var offeredOptIn = false
+    /// This turn's prompt, for prediction options.
+    private var prompt = ""
+    /// At most one prediction per wait, as its first question (task 2.10).
+    private var offeredPrediction = false
+    /// The prediction waiting for the agent: its kind, and for files the path behind each option.
+    private var pendingPrediction: (kind: Prediction.Kind, paths: [String])?
 
     var limitPerWait: Int { selector.limitPerWait }
 
@@ -29,26 +35,69 @@ final class Quiz {
     }
 
     /// Starts a new wait (an agent turn) in the repo at `cwd`.
-    func startWait(session: String?, cwd: String) {
+    func startWait(session: String?, cwd: String, prompt: String? = nil) {
         endWait()
         asked = []
         saved = [:]
         editedPaths = []
         offeredOptIn = false
+        offeredPrediction = false
+        pendingPrediction = nil
+        self.prompt = prompt ?? ""
         self.session = session
         self.cwd = cwd
     }
 
-    /// Notes the files the agent edits, so codebase questions about them come first.
-    func note(_ events: [AgentEvent]) {
-        guard let root = repo?.root else { return }
-        for event in events where event.session == session {
+    /// Notes the files the agent edits, so codebase questions about them come first, and
+    /// returns the answer to a waiting prediction once the agent's work gives it.
+    func note(_ events: [AgentEvent]) -> (correct: Int?, note: String)? {
+        guard let root = repo?.root else { return nil }
+        let mine = events.filter { $0.session == session }
+        for event in mine {
             guard case .edit(let edits) = event.kind else { continue }
             for edit in edits {
                 let prefix = root.hasSuffix("/") ? root : root + "/"
                 editedPaths.insert(edit.path.hasPrefix(prefix) ? String(edit.path.dropFirst(prefix.count)) : edit.path)
             }
         }
+        guard let pending = pendingPrediction else { return nil }
+        switch pending.kind {
+        case .firstFile:
+            guard let path = Prediction.firstEditedFile(mine, root: root) else { return nil }
+            pendingPrediction = nil
+            let index = pending.paths.firstIndex(of: path)
+            return (index, index == nil ? "It went for \(path) first." : "It edited \(path) first.")
+        case .testsPass:
+            guard let passed = Prediction.firstTestRunPassed(mine) else { return nil }
+            pendingPrediction = nil
+            return (passed ? 0 : 1, passed ? "The first test run passed." : "The first test run failed.")
+        }
+    }
+
+    /// A prediction about this turn, if the repo is on and there's something to predict:
+    /// which file the agent changes first (when the prompt points at a few), else whether
+    /// the tests pass first time (when the repo has tests).
+    private func prediction() -> QuizQuestion? {
+        guard !offeredPrediction, asked.isEmpty, !prompt.isEmpty, let repo, repo.state == .on,
+              let paths = try? library?.filePaths(root: repo.root), !paths.isEmpty else { return nil }
+        offeredPrediction = true
+        if let files = Prediction.fileOptions(prompt: prompt, paths: paths) {
+            pendingPrediction = (.firstFile, files)
+            return QuizQuestion(deck: "Prediction", topic: "This turn", text: "Which file will the agent change first?",
+                                options: files.map(Self.short), correct: -1, prediction: .firstFile)
+        }
+        if paths.contains(where: { $0.lowercased().contains("test") }) {
+            pendingPrediction = (.testsPass, [])
+            return QuizQuestion(deck: "Prediction", topic: "This turn", text: "Will the tests pass on the agent’s first run?",
+                                options: ["Yes", "No"], correct: -1, prediction: .testsPass)
+        }
+        return nil
+    }
+
+    /// A path short enough for a notch option: the end of it, under 50 characters.
+    private static func short(_ path: String) -> String {
+        guard path.count > 48 else { return path }
+        return "…" + path.suffix(47)
     }
 
     /// The repo for this wait, once the worker has recorded it.
@@ -72,6 +121,11 @@ final class Quiz {
 
     /// The next question for this wait, or nil when its limit is reached or nothing fits.
     func next() -> QuizQuestion? {
+        if let prediction = prediction() {
+            // Takes one of the wait's slots, but never enters spaced repetition.
+            asked.append(.init(id: "prediction", deck: "prediction", deckTitle: "Prediction"))
+            return prediction
+        }
         let repo = self.repo
         var questions: [String: QuizQuestion] = [:]
         var candidates: [QuestionSelector.Candidate] = []
@@ -99,6 +153,7 @@ final class Quiz {
         context.deckStats = (try? reviews?.deckStats(since: Date().addingTimeInterval(-30 * 86_400))) ?? [:]
         context.recentSkips = (try? reviews?.skips(since: Date().addingTimeInterval(-7 * 86_400))) ?? [:]
         context.recentAccuracy = try? reviews?.recentAccuracy()
+        context.suppressed = (try? reviews?.suppressed()) ?? []
         context.askedThisWait = asked
         context.agentTouchedCode = !editedPaths.isEmpty
 
@@ -144,6 +199,22 @@ final class Quiz {
               let revised = try? reviews?.revise(recorded, confidence: confidence) else { return "later" }
         saved[id] = revised
         return Spacing.comesBack(revised.after, from: revised.at)
+    }
+
+    /// "Report wrong question": a codebase question leaves the pool for good; a deck card is
+    /// never shown again. Logged as reported either way (task 2.10).
+    func report(_ question: QuizQuestion) {
+        guard let id = question.cardID else { return }
+        if id.hasPrefix("cb-") {
+            try? library?.setStatus(.reported, question: id)
+        } else {
+            try? reviews?.suppress(cardID: id)
+        }
+        if open?.id == id {
+            close(id, .reported)
+        } else if let row = try? reviews?.logShown(cardID: id, deck: question.deck, session: session, why: nil, terms: [:]) {
+            try? reviews?.finishShown(row, outcome: .reported)
+        }
     }
 
     func skipped(_ question: QuizQuestion) {
