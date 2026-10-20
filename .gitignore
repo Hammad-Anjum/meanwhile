@@ -4,3 +4,4 @@
 # Dev-only hook configs for the spike (point at this machine's hook binary)
 .claude/settings.local.json
 .codex/
+dist/

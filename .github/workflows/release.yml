@@ -1,0 +1,39 @@
+name: Release
+
+# Push a tag like v0.2.0 to publish a release:
+#   git tag v0.2.0 && git push origin v0.2.0
+# Assets: meanwhile-<version>-macos.tar.gz and SHA256SUMS (what install.sh and `meanwhile update` download).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version from tag
+        run: scripts/set-version.sh "$GITHUB_REF_NAME"
+
+      - name: Test
+        run: swift test
+
+      - name: Build universal binaries and package
+        run: scripts/package.sh
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          prerelease=""
+          case "$version" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/meanwhile-$version-macos.tar.gz" dist/SHA256SUMS \
+            --title "Meanwhile $version" --generate-notes $prerelease

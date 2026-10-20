@@ -10,7 +10,7 @@ struct MeanwhileCommand: ParsableCommand {
         abstract: "Short questions in the notch while your coding agent works.",
         version: Meanwhile.version,
         subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Config.self, Work.self, ModelCheck.self,
-                      Generate.self, Version.self],
+                      Generate.self, Version.self, Update.self],
         defaultSubcommand: Run.self
     )
 }

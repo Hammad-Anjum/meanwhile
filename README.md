@@ -4,8 +4,8 @@ Meanwhile shows short quiz questions in your MacBook notch while your coding age
 
 ## Requirements
 
-- macOS 14 or later. Macs and displays without a notch get a small floating pill instead.
-- Claude Code, Codex, or both.
+- macOS 14 or later, Apple silicon or Intel. Macs and displays without a notch get a small floating pill instead.
+- Claude Code, Codex, or both, installed first (`setup` needs `~/.claude` or `~/.codex`).
 - For codebase questions: a provider CLI on your `PATH`, logged in. `codex` is the default; `claude` also works. Meanwhile runs that CLI under your own account, so its calls count toward your plan's usage limits. Deck questions work without a provider.
 
 ## Install
@@ -14,7 +14,7 @@ Meanwhile shows short quiz questions in your MacBook notch while your coding age
 curl -fsSL https://raw.githubusercontent.com/Hammad-Anjum/meanwhile/main/install.sh | sh
 ```
 
-The script downloads the latest [release](https://github.com/Hammad-Anjum/meanwhile/releases), checks its checksum, installs `meanwhile`, and runs `meanwhile setup`.
+The script downloads the latest [release](https://github.com/Hammad-Anjum/meanwhile/releases), checks its SHA-256, runs `meanwhile setup`, and links `~/.local/bin/meanwhile` (it prints the `PATH` line to add if that folder isn't on your `PATH`). Later, `meanwhile update` installs a newer release; `meanwhile update --check` only reports.
 
 `setup` shows every change before it makes it, then:
 
@@ -147,6 +147,10 @@ If you run `setup` inside a checkout whose `.claude/settings.json` or `.codex/ho
 
 Hidden commands for development: `meanwhile model-check [--provider codex|claude]` asks the provider one sample question and times it; `meanwhile generate --repo <path> --session <id>` writes questions for a session's latest turn and prints them.
 
+### Release
+
+Push a tag like `v0.2.0`. `.github/workflows/release.yml` sets the version from the tag (`scripts/set-version.sh`), runs the tests, builds a universal binary, ad-hoc signs it, and publishes `meanwhile-<version>-macos.tar.gz` and `SHA256SUMS` (`scripts/package.sh`; run it locally to get the same files in `dist/`). CI (`.github/workflows/ci.yml`) builds and tests every push to `main` and every pull request.
+
 ### Layout
 
 | Path | What |
@@ -156,5 +160,5 @@ Hidden commands for development: `meanwhile model-check [--provider codex|claude
 | `Sources/MeanwhileHook` | `meanwhile-hook`, the small program agents call from their hooks |
 | `Sources/MeanwhileApp` | The `meanwhile` command: the background notch process and the CLI |
 | `Tests/` | Core tests and recorded hook payloads |
-| `scripts/` | Spike and fixture scripts |
+| `scripts/` | Packaging, versioning, spike and fixture scripts |
 | `docs/` | Design docs |
