@@ -235,9 +235,9 @@ Progress:
 | 5.2 | **Generic deck editor:** add, edit and delete cards; create a deck from a topic (written by AI once, then editable); import and export JSON | M | A custom deck shows up in the notch |
 | 5.3 | Recap view | S | Matches the mockup |
 | 5.4 | Display placement: follow the agent's terminal or editor window; fall back to the built-in notch | M | Works with an external monitor |
-| 5.5 | Onboarding inside `meanwhile setup` (the flow above, as prompts in the terminal) | S | A fresh Mac account gets from install to first question in under 3 minutes |
+| 5.5 | Onboarding inside `meanwhile setup` (the flow above, as prompts in the terminal). **Partly done 2026-10-20:** setup makes a real provider call with login fixes and checks Codex hook trust; `meanwhile doctor` checks the whole install | S | A fresh Mac account gets from install to first question in under 3 minutes |
 | 5.6 | Auto-pause on short turns and screen sharing; Escape and hover behavior | S | |
-| 5.7 | Packaging: universal (Apple silicon and Intel) builds on a GitHub release, `install.sh` (`curl … \| sh`) that installs `meanwhile` and `meanwhile-hook` and runs `meanwhile setup`, and `meanwhile update` | M | The one-line install works on another Mac |
+| 5.7 | Packaging: universal (Apple silicon and Intel) builds on a GitHub release, `install.sh` (`curl … \| sh`) that installs `meanwhile` and `meanwhile-hook` and runs `meanwhile setup`, and `meanwhile update`. **Built 2026-10-20** (`.github/workflows/release.yml`, `scripts/package.sh`, `install.sh`, `meanwhile update`; tested against a local server). Not yet checked on another Mac | M | The one-line install works on another Mac |
 
 ### Phase 6: Use it yourself and measure
 
