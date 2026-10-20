@@ -23,8 +23,9 @@ import Testing
 }
 
 @Test func thisRepoGetsTheSwiftDeck() throws {
-    // The test bundle lives under .build inside the repo; walk up to the repo root.
-    let root = StackDetector.repoRoot(for: Bundle.module.bundlePath)
+    // From this source file, not the test bundle: a build folder can live outside the repo
+    // (`--scratch-path`).
+    let root = StackDetector.repoRoot(for: (#filePath as NSString).deletingLastPathComponent)
     #expect(StackDetector.stacks(inRepo: root).contains(.swift))
     let ids = PackLibrary.bundled().library.packs(forDirectory: root, disabled: []).map(\.id)
     #expect(ids.contains("swift-macos") && !ids.contains("python") && ids.contains("system-design"))
