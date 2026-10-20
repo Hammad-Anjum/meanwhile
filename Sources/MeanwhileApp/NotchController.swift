@@ -195,6 +195,11 @@ final class NotchController {
     func resume() {
         model.status = .working
         switch model.content {
+        case .question(let state) where state.lockedChoice != nil || state.confidence != nil:
+            // "Needs you" cut off the automatic move after a prediction or confidence pick.
+            Hotkeys.shared.enable()
+            showExpanded()
+            moveOn()
         case .question, .recap, .optIn:
             Hotkeys.shared.enable()
             showExpanded()
@@ -256,11 +261,13 @@ final class NotchController {
     func answer(_ choice: Int?) {
         guard case .question(var state) = model.content, state.answer == nil else { return }
         if state.question.prediction != nil {
-            // A prediction: lock the pick in; the agent's work answers it later.
+            // A prediction: lock the pick in; the agent's work answers it later, in the recap.
+            // Nothing to read until then, so move on by itself after the pick shows.
             guard state.lockedChoice == nil, let choice else { return }
             state.lockedChoice = choice
             model.content = .question(state)
             pendingPrediction = (state.question, choice)
+            schedule(after: 0.6) { [weak self] in self?.moveOn() }
             return
         }
         let answer = NotchModel.Answer(choice: choice, correct: choice == state.question.correct)
