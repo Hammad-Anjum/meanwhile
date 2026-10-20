@@ -15,7 +15,7 @@ struct DebugEvent: Identifiable {
 }
 
 /// Task 0.2 debug log: receives raw hook events, keeps them for the Event Log window,
-/// and appends them to the debug recording used for fixtures.
+/// and, with `meanwhile run --record`, appends them to the debug recording used for fixtures.
 @MainActor @Observable
 final class EventLog {
     private static let maximumVisibleEvents = 2_000
@@ -31,6 +31,9 @@ final class EventLog {
     @ObservationIgnored private var server: EventServer?
     @ObservationIgnored private let store: EventStore?
     @ObservationIgnored private var retainedEventBytes = 0
+    /// Raw lines go to the debug recording only with `meanwhile run --record`: they hold
+    /// prompts and code, and the recording isn't covered by the 30-day event retention.
+    @ObservationIgnored var recording = false
 
     /// Lines are saved to `store` on the server's background queue before the UI sees them.
     init(store: EventStore?, storeError: String? = nil) {
@@ -76,7 +79,7 @@ final class EventLog {
     }
 
     private func ingest(_ line: Data) {
-        record(line)
+        if recording { record(line) }
         guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { return }
         let pretty = (try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]))
             .map { String(decoding: $0, as: UTF8.self) } ?? ""

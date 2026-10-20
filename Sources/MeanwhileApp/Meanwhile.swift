@@ -24,10 +24,13 @@ extension MeanwhileCommand {
         @Flag(help: "Open the Event Log window at launch.")
         var showLog = false
 
+        @Flag(help: "Also write every raw hook event to debug/events.ndjson, for test fixtures. It holds prompts and code.")
+        var record = false
+
         func run() throws {
             // ArgumentParser calls run() synchronously from main(), so this is the main thread.
-            let showLog = showLog
-            MainActor.assumeIsolated { MenuBarApp.run(showLog: showLog) }
+            let showLog = showLog, record = record
+            MainActor.assumeIsolated { MenuBarApp.run(showLog: showLog, record: record) }
         }
     }
 

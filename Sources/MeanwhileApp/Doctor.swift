@@ -69,7 +69,7 @@ extension MeanwhileCommand {
             for hookAgent in HookInstaller.Agent.allCases {
                 let scan = D.scanHooks(hookAgent, home: FileManager.default.homeDirectoryForCurrentUser)
                 checks.append(D.hooks(hookAgent, scan: scan))
-                if hookAgent == .codex, !scan.events.isEmpty { checks.append(D.codexTrustReminder) }
+                if hookAgent == .codex, let trust = D.codexTrust(CodexHookTrust().check()) { checks.append(trust) }
             }
 
             // Provider.

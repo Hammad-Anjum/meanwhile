@@ -16,7 +16,7 @@ All of it is under your home folder. The folder `~/Library/Application Support/M
 | `reviews.sqlite` | Your progress: for each card, when it is next due and how often you got it right; a log of every answer (card id, choice, right or wrong, confidence, session id); each question shown, its outcome and why it was picked; cards you reported. | Kept until you delete it. Not pruned. |
 | `library.sqlite` | What Meanwhile learned about each repo: its path, its opt-in answer, and for repos you turned on, the index (file paths and git blob hashes, chunks of doc files, symbol names and line numbers from code files, commit subjects with author email and date, how often each file changed), the repo card, and the question pool (each question with the quote and file path it cites). Also a log of every model call (time, kind, provider, repo, session, success, duration) used to enforce the budget, and the worker's queue. | Kept until you choose **Never** for the repo (see below) or delete the file. |
 | `spool/` | Hook events written while Meanwhile wasn't running. | Read into `meanwhile.sqlite` and emptied when Meanwhile next starts (or within seconds, if it is running). |
-| `debug/events.ndjson`, `debug/events.previous.ndjson` | A raw copy of every hook event, for the Event Log window and test fixtures. Same content as `meanwhile.sqlite`. | Size-limited, not time-limited: when the file reaches 32 MB it becomes `events.previous.ndjson` and the older one is deleted. Up to about 64 MB in all. |
+| `debug/events.ndjson`, `debug/events.previous.ndjson` | Only if you start Meanwhile with `meanwhile run --record` (a developer option for test fixtures; off by default): a raw copy of every hook event, the same content as `meanwhile.sqlite`. | Size-limited, not time-limited: when the file reaches 32 MB it becomes `events.previous.ndjson` and the older one is deleted. Up to about 64 MB in all. |
 | `bin/` | The installed `meanwhile`, `meanwhile-hook` and the bundled decks. | Removed by `meanwhile uninstall`. |
 | `meanwhile.sock`, `worker.lock` | The socket the hook sends events to, and a lock so only one worker runs. No data. | While Meanwhile runs. |
 
@@ -92,7 +92,7 @@ The first time you work in a repo, the notch asks whether to turn on codebase qu
 - **Not now:** nothing is indexed or sent. It asks again after a day.
 - **Never:** nothing is indexed or sent, and it doesn't ask again. Choosing Never also deletes everything learned from that project and all its worktrees in `library.sqlite`: the question pool, the repo card, file paths, doc chunks, symbols, commit info and file history. Index data shared with another repo you turned on stays for that repo.
 
-**Never** does not delete the repo's hook events in `meanwhile.sqlite` and `debug/` (they expire after 30 days, or by size), your answers in `reviews.sqlite`, or the model-call log in `library.sqlite`. The repo's path and your answer stay, so Meanwhile remembers not to ask.
+**Never** does not delete the repo's hook events in `meanwhile.sqlite` (they expire after 30 days; also `debug/` if you used `--record`, which is limited by size), your answers in `reviews.sqlite`, or the model-call log in `library.sqlite`. The repo's path and your answer stay, so Meanwhile remembers not to ask.
 
 ## Deleting everything
 

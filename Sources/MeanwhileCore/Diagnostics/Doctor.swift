@@ -126,7 +126,10 @@ public enum Doctor {
     /// Which `meanwhile` a terminal runs, given its PATH.
     public static func onPath(_ path: String, installed: URL) -> Check {
         let installedPath = installed.resolvingSymlinksInPath().path
-        let fix = "echo 'export PATH=\"$HOME/Library/Application Support/Meanwhile/bin:$PATH\"' >> ~/.zprofile"
+        // The same link install.sh makes, plus the PATH line in case ~/.local/bin isn't on it.
+        let fix = "mkdir -p ~/.local/bin && ln -sf \"$HOME/Library/Application Support/Meanwhile/bin/meanwhile\" ~/.local/bin/meanwhile"
+            + (path.split(separator: ":").contains { $0.hasSuffix("/.local/bin") } ? ""
+               : " && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.zprofile")
         guard let found = which("meanwhile", path: path) else {
             return Check("install.path", .warning, "meanwhile is not on your PATH", fix: fix)
         }
@@ -314,10 +317,21 @@ public enum Doctor {
         return Check(id, .ok, "\(name): \(scan.events.count) hooks in \(file) run \(scan.commands.map(tilde).joined(separator: ", "))")
     }
 
-    /// Codex ignores new hooks until the user trusts them, and that can't be seen from outside.
-    public static let codexTrustReminder = Check(
-        "hooks.codex.trust", .warning, "Codex runs new hooks only after you trust them (not checked)",
-        fix: "In Codex, run /hooks and trust the Meanwhile entries")
+    /// Codex ignores new hooks until the user trusts them with /hooks; Codex records that in
+    /// ~/.codex/config.toml (read by `CodexHookTrust`). Nil when there are no Codex hooks.
+    public static func codexTrust(_ status: CodexHookTrust.Status) -> Check? {
+        let fix = "In Codex, run /hooks and trust the Meanwhile entries"
+        switch status {
+        case .noHooks:
+            return nil
+        case .trusted:
+            return Check("hooks.codex.trust", .ok, "Codex trusts Meanwhile's hooks")
+        case .untrusted(let events):
+            return Check("hooks.codex.trust", .failure,
+                         "Codex hasn't trusted Meanwhile's hooks for \(events.joined(separator: ", ")); Codex turns show no questions",
+                         fix: fix)
+        }
+    }
 
     // MARK: Provider
 

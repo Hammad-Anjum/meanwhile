@@ -312,3 +312,12 @@ private func executable(at url: URL) throws -> URL {
     try write("hello\n", to: url)
     #expect(Doctor.log(url).status == .ok)
 }
+
+@Test func codexTrustIsReportedFromCodexOwnRecord() {
+    #expect(Doctor.codexTrust(.noHooks) == nil)
+    #expect(Doctor.codexTrust(.trusted)?.status == .ok)
+    let untrusted = Doctor.codexTrust(.untrusted(["stop", "user_prompt_submit"]))
+    #expect(untrusted?.status == .failure)
+    #expect(untrusted?.fact.contains("stop, user_prompt_submit") == true)
+    #expect(untrusted?.fix?.contains("/hooks") == true)
+}

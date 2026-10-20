@@ -145,7 +145,7 @@ swift build
 
 If you run `setup` inside a checkout whose `.claude/settings.json` or `.codex/hooks.json` also runs `meanwhile-hook`, it warns you: events from that folder would arrive twice.
 
-Hidden commands for development: `meanwhile model-check [--provider codex|claude]` asks the provider one sample question and times it; `meanwhile generate --repo <path> --session <id>` writes questions for a session's latest turn and prints them.
+Hidden commands for development: `meanwhile model-check [--provider codex|claude]` asks the provider one sample question and times it; `meanwhile generate --repo <path> --session <id>` writes questions for a session's latest turn and prints them. `meanwhile run --record` also writes every raw hook event to `~/Library/Application Support/Meanwhile/debug/events.ndjson` for test fixtures (off by default: it holds prompts and code).
 
 ### Release
 

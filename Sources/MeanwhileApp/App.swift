@@ -7,7 +7,7 @@ import MeanwhileIPC
 /// can't share the entry point with the CLI subcommands.
 @MainActor
 enum MenuBarApp {
-    static func run(showLog: Bool = false) -> Never {
+    static func run(showLog: Bool = false, record: Bool = false) -> Never {
         let app = NSApplication.shared
         // No Dock icon or app menu, like LSUIElement in the old Info.plist.
         app.setActivationPolicy(.accessory)
@@ -16,6 +16,7 @@ enum MenuBarApp {
         // so both are held here for the life of the process.
         let delegate = AppDelegate()
         delegate.showLogAtLaunch = showLog
+        delegate.log.recording = record
         let statusMenu = StatusMenu(delegate: delegate)
         app.delegate = delegate
         let signals = terminateOnSignals()
