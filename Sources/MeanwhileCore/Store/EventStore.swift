@@ -14,16 +14,7 @@ public final class EventStore: Sendable {
     public init(path: String? = MeanwhilePaths.eventStore.path, retention: TimeInterval = defaultRetention) throws {
         self.retention = retention
         if let path {
-            let directory = (path as NSString).deletingLastPathComponent
-            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true,
-                                                    attributes: [.posixPermissions: 0o700])
-            writer = try DatabasePool(path: path)
-            try Self.migrator.migrate(writer)
-            // SQLite creates the database, WAL and shared-memory files with the umask. They exist
-            // once the migration has written, so tighten them now.
-            for suffix in ["", "-wal", "-shm"] where FileManager.default.fileExists(atPath: path + suffix) {
-                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path + suffix)
-            }
+            writer = try StoreFile.open(path: path, migrator: Self.migrator)
         } else {
             writer = try DatabaseQueue()
             try Self.migrator.migrate(writer)
@@ -97,7 +88,7 @@ public final class EventStore: Sendable {
         return decoder
     }
 
-    private static var migrator: DatabaseMigrator {
+    static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
             try db.create(table: "rawEvent") { t in

@@ -178,8 +178,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Events hold prompts and code; keep only the retention window (30 days).
         _ = try? store?.prune()
+        // The launchd log would grow forever; keep it to a few megabytes. Same timer.
+        _ = try? LogRotation.rotateIfNeeded(at: MeanwhilePaths.log)
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [store] _ in
             _ = try? store?.prune()
+            _ = try? LogRotation.rotateIfNeeded(at: MeanwhilePaths.log)
         }
 
         // The notch follows the session tracker: a question while the agent works,

@@ -10,18 +10,10 @@ public final class ReviewStore: Sendable {
     /// Opens (or creates) the store at `path`. Pass nil for an in-memory store (tests).
     public init(path: String? = MeanwhilePaths.reviewStore.path) throws {
         if let path {
-            try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
-                                                    withIntermediateDirectories: true,
-                                                    attributes: [.posixPermissions: 0o700])
-            writer = try DatabasePool(path: path)
+            writer = try StoreFile.open(path: path, migrator: Self.migrator)
         } else {
             writer = try DatabaseQueue()
-        }
-        try Self.migrator.migrate(writer)
-        if let path {
-            for suffix in ["", "-wal", "-shm"] where FileManager.default.fileExists(atPath: path + suffix) {
-                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path + suffix)
-            }
+            try Self.migrator.migrate(writer)
         }
     }
 
@@ -102,7 +94,7 @@ public final class ReviewStore: Sendable {
         try writer.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM answer") ?? 0 }
     }
 
-    private static var migrator: DatabaseMigrator {
+    static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
             try db.create(table: "review") { t in

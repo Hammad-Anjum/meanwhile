@@ -18,6 +18,7 @@ public struct LaunchAgent: Sendable {
         home.appendingPathComponent("Library/LaunchAgents/\(Self.label).plist")
     }
 
+    /// The same file as `MeanwhilePaths.log` for the real home. `LogRotation` keeps it bounded.
     public var logURL: URL {
         home.appendingPathComponent("Library/Logs/Meanwhile/meanwhile.log")
     }

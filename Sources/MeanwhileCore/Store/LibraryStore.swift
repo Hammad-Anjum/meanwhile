@@ -11,18 +11,10 @@ public final class LibraryStore: Sendable {
     /// Opens (or creates) the store at `path`. Pass nil for an in-memory store (tests).
     public init(path: String? = MeanwhilePaths.libraryStore.path) throws {
         if let path {
-            try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
-                                                    withIntermediateDirectories: true,
-                                                    attributes: [.posixPermissions: 0o700])
-            writer = try DatabasePool(path: path)
+            writer = try StoreFile.open(path: path, migrator: Self.migrator)
         } else {
             writer = try DatabaseQueue()
-        }
-        try Self.migrator.migrate(writer)
-        if let path {
-            for suffix in ["", "-wal", "-shm"] where FileManager.default.fileExists(atPath: path + suffix) {
-                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path + suffix)
-            }
+            try Self.migrator.migrate(writer)
         }
     }
 
@@ -335,7 +327,7 @@ public final class LibraryStore: Sendable {
 
     // MARK: Schema
 
-    private static var migrator: DatabaseMigrator {
+    static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1-repos") { db in
             try db.create(table: "repo") { t in

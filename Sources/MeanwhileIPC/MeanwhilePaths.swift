@@ -25,6 +25,12 @@ public enum MeanwhilePaths {
     /// Held by the running worker so only one runs at a time.
     public static var workerLock: URL { supportDirectory.appendingPathComponent("worker.lock") }
 
+    /// Where launchd sends the login item's output (see `LaunchAgent`). Kept bounded by
+    /// `LogRotation`.
+    public static var log: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Meanwhile/meanwhile.log")
+    }
+
     /// Every event the app receives, as raw lines. Used to record test fixtures (task 0.3).
     public static var debugRecording: URL {
         supportDirectory.appendingPathComponent("debug/events.ndjson")
