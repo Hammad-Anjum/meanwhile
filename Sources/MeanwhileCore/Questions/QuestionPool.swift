@@ -116,7 +116,7 @@ extension LibraryStore {
         }
     }
 
-    /// Ready questions that hold in the checkout at `root`: every file they cite has the same
+    /// Ready questions that hold in the checkout at `root`: the file they quote has the same
     /// content there. So a question about code only on one branch shows only in that branch's
     /// worktree, and everywhere once it's merged.
     public func poolQuestions(visibleIn root: String) throws -> [PoolQuestion] {
@@ -124,10 +124,13 @@ extension LibraryStore {
         return try poolQuestions(root: root).filter { Self.holds($0, in: root, files: files) }
     }
 
-    /// Whether `question`'s evidence matches the checkout whose files are `files`. Text
-    /// fingerprints (hook-only evidence) hold only in the checkout that made the question.
+    /// Whether `question` holds in the checkout whose files are `files`: judged on the file it
+    /// quotes, the one that proves the answer. (Questions made before 2026-10-20 also cite every
+    /// other file in their pack; an edit to those doesn't change the answer.) Text fingerprints
+    /// (hook-only evidence) hold only in the checkout that made the question.
     static func holds(_ question: PoolQuestion, in root: String, files: [String: String]) -> Bool {
-        question.evidence.allSatisfy { path, blob in
+        let proof = question.evidence[question.sourcePath].map { [question.sourcePath: $0] } ?? question.evidence
+        return proof.allSatisfy { path, blob in
             blob.hasPrefix("text:") ? question.root == root : files[path] == blob
         }
     }
@@ -151,23 +154,32 @@ extension LibraryStore {
         }
     }
 
-    /// Marks ready questions stale once no checkout of the project has the files they cite
-    /// as they were: changed or gone everywhere. Text-fingerprint questions go stale when
-    /// their file is edited again (in `addToPool`). Run after each re-index. Returns how many went stale.
+    /// Marks ready questions stale once no checkout of the project has the file they quote
+    /// as it was: changed or gone everywhere. A stale question comes back when a checkout has
+    /// it again (a branch switched back, a worktree added). Text-fingerprint questions go
+    /// stale when their file is edited again (in `addToPool`) and never come back.
+    /// Run after each re-index. Returns how many went stale.
     @discardableResult
     public func markStaleQuestions(root: String) throws -> Int {
         let project = try projectRoot(of: root)
         let checkouts = try repos().filter { $0.project == project }.map(\.root)
         let files = try checkouts.map { (root: $0, files: try fileEntries(repoID: try repoID(root: $0))) }
         var stale = 0
-        for question in try poolQuestions(root: root) {
+        for question in try poolQuestions(root: root, statuses: [.ready, .stale]) {
             let textOnly = question.evidence.values.allSatisfy { $0.hasPrefix("text:") }
             let holdsSomewhere = files.contains { Self.holds(question, in: $0.root, files: $0.files) }
             // About a file of another checkout nested in this one: not this checkout's code.
             let nested = EvidenceBuilder.isInNestedCheckout(question.sourcePath, root: question.root)
-            guard nested || (!textOnly && !holdsSomewhere) else { continue }
-            try setStatus(.stale, question: question.id)
-            stale += 1
+            let holds = !nested && (textOnly || holdsSomewhere)
+            switch (question.status, holds) {
+            case (.ready, false):
+                try setStatus(.stale, question: question.id)
+                stale += 1
+            case (.stale, true) where !textOnly:
+                try setStatus(.ready, question: question.id)
+            default:
+                break
+            }
         }
         return stale
     }

@@ -124,3 +124,30 @@ private func question(_ id: String, root: URL, path: String, blob: String?, quot
     #expect(try library.fileCount(repoID: try library.repoID(root: worktree.path)) == 0)
     #expect(try library.poolQuestions(root: main.path, statuses: [.ready]).isEmpty)
 }
+
+@Test func stalenessFollowsTheQuotedFileAndRevertsComeBack() throws {
+    let repo = try makeGitRepo(["README.md": "# App\nShared docs.", "a.swift": "let a = 1\n"])
+    defer { try? FileManager.default.removeItem(at: repo) }
+    let library = try LibraryStore(path: nil)
+    _ = try RepoIndexer(library: library).index(root: repo.path)
+    let readme = try #require(try library.blob(of: "README.md", root: repo.path))
+    let a = try #require(try library.blob(of: "a.swift", root: repo.path))
+    // Made before 2026-10-20: quotes README.md but cites every file in its pack.
+    try library.insert(PoolQuestion(id: "legacy", root: repo.path, kind: "primer", topic: "Docs", type: "trueFalse",
+                                    question: "Are the docs shared?", options: ["True", "False"], correct: 0,
+                                    explanation: "They are.", quote: "Shared docs.", sourcePath: "README.md",
+                                    evidence: ["README.md": readme, "a.swift": a], score: 4, createdAt: Date(), status: .ready))
+    try library.insert(question("code", root: repo, path: "a.swift", blob: a, quote: "let a = 1"))
+
+    // a.swift changes: only the question quoting it goes stale.
+    try Data("let a = 2\n".utf8).write(to: repo.appendingPathComponent("a.swift"))
+    _ = try RepoIndexer(library: library).index(root: repo.path)
+    #expect(try library.markStaleQuestions(root: repo.path) == 1)
+    #expect(try library.poolQuestions(root: repo.path).map(\.id) == ["legacy"])
+
+    // Changed back (a branch switched back): the question returns.
+    try Data("let a = 1\n".utf8).write(to: repo.appendingPathComponent("a.swift"))
+    _ = try RepoIndexer(library: library).index(root: repo.path)
+    #expect(try library.markStaleQuestions(root: repo.path) == 0)
+    #expect(Set(try library.poolQuestions(root: repo.path).map(\.id)) == ["legacy", "code"])
+}

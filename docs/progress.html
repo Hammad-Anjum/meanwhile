@@ -82,7 +82,7 @@
 <div class="stats">
   <div class="stat"><b>7 / 7</b><span>Phase 0 tasks done</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>26 / 41</b><span>All v1 tasks done</span><div class="bar"><i style="width:63%"></i></div></div>
-  <div class="stat"><b>172 / 172</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
+  <div class="stat"><b>173 / 173</b><span>Tests passing (<code>swift test</code>)</span><div class="bar"><i style="width:100%"></i></div></div>
   <div class="stat"><b>3</b><span>Recorded fixtures (Claude 1, Codex 2)</span></div>
 </div>
 
@@ -510,6 +510,7 @@ flowchart LR
 <div class="card">
 <table>
   <tr><th>Date</th><th>Change</th><th>Diagrams</th></tr>
+  <tr><td>2026-10-19</td><td>Staleness is judged on the file a question quotes, and a stale question comes back when a checkout has that file as it was again (a branch switched back). Questions made before the security pass cited every file in their pack, so an edit to <code>docs/README.md</code> had staled all 19 of them although their quoted sources were unchanged.</td><td>Unchanged</td></tr>
   <tr><td>2026-10-19</td><td>Worktrees as one project: the worker asks git which repo a checkout belongs to (<code>git worktree list</code>), so all worktrees share one opt-in answer, repo card and question pool while each keeps its own file index. A question shows in a worktree only when the files it cites match there (branch-only questions stay on their branch until merged) and goes stale only when no worktree has them. Removed worktrees are pruned and their questions folded in. Edits inside a nested checkout no longer leak into the parent's questions, and the same quote from the same file now counts as a duplicate. On first run this removes the four dead <code>.claude/worktrees</code> rows and retires the three questions about their files.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>Pacing settings (first slice of 5.1): questions come in rounds, the first right away and then one every interval, with a cap per agent turn or per day (predictions don't count). Set from the menu bar's Pacing menu (presets or Custom…), with <code>meanwhile config</code>, or in <code>~/.config/meanwhile/config.toml</code>. Defaults: 3 per round, every 2 minutes, 20 per turn. Between rounds the notch shows a countdown to the next one.</td><td>Both updated; previous snapshot saved</td></tr>
   <tr><td>2026-10-19</td><td>Predictions move on by themselves 0.6 s after the pick (the agent's work still answers them, in the recap). If a 'needs you' cuts off that move, or the one after a confidence pick, it happens when the agent carries on.</td><td>Unchanged</td></tr>
