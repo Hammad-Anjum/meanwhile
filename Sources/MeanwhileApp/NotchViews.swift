@@ -65,6 +65,14 @@ struct NotchExpandedView: View {
         HStack {
             Text(hint).font(.caption2).foregroundStyle(NotchColor.muted)
             Spacer()
+            if model.status == .working || model.status == .needsInput {
+                // Not in the mood: fold it away for this turn; a click on the notch brings it back.
+                Button("Hide") { controller?.hideQuestions() }
+                    .buttonStyle(.plain)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(NotchColor.muted)
+                    .padding(.trailing, 6)
+            }
             if case .question(let state) = model.content {
                 // Nothing moves on by itself: after answering, the user reads, then picks Next.
                 Button(state.answer == nil ? "Skip" : model.status == .done ? "See recap" : "Next") {
@@ -82,7 +90,7 @@ struct NotchExpandedView: View {
         guard case .question(let state) = model.content else { return "" }
         if model.isAwaitingConfidence, state.question.prediction == nil { return "⌃⌥1–3 how sure · ⌃⌥↩ next" }
         return state.answer == nil && state.lockedChoice == nil
-            ? "Click or press ⌃⌥1–\(state.question.options.count)" : "⌃⌥↩ next"
+            ? "Click or press ⌃⌥1–\(state.question.options.count) · ⌃⌥H hide" : "⌃⌥↩ next"
     }
 }
 
@@ -421,7 +429,7 @@ struct NotchCompactLeading: View {
         .foregroundStyle(model.status == .needsInput ? NotchColor.wrong : NotchColor.accent)
         .padding(.leading, 4)
         .contentShape(Rectangle())
-        .onTapGesture { controller?.expandFromCompact() }
+        .onTapGesture { controller?.showQuestions() }
     }
 }
 
@@ -432,6 +440,9 @@ struct NotchCompactTrailing: View {
     var body: some View {
         Group {
             switch model.status {
+            case .working where model.hidden:
+                // Hidden by the user; a click shows the questions again.
+                Image(systemName: "eye.slash")
             case .working where model.remaining > 0:
                 Label("\(model.remaining)", systemImage: "questionmark.bubble")
             case .working where model.nextRound != nil:
@@ -448,7 +459,7 @@ struct NotchCompactTrailing: View {
         .foregroundStyle(NotchColor.text)
         .padding(.trailing, 4)
         .contentShape(Rectangle())
-        .onTapGesture { controller?.expandFromCompact() }
+        .onTapGesture { controller?.showQuestions() }
     }
 }
 

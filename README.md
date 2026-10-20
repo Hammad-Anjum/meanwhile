@@ -40,10 +40,13 @@ Answer with the mouse, or with global hotkeys while a question is open:
 |---|---|
 | ⌃⌥1 to ⌃⌥4 | Pick option 1–4 (after answering: pick a confidence) |
 | ⌃⌥↩ | Next |
+| ⌃⌥H | Hide the questions for this turn |
 
 The hotkeys are only registered while a question is open, so other apps keep them the rest of the time.
 
-The menu bar icon (a question bubble) has **Decks** (turn decks on and off), **Pacing**, **Show Event Log**, **Ask a Question in 3 s** (to try the notch without an agent), **Hide Notch**, and **Quit Meanwhile**.
+The menu bar icon (a question bubble) has **Decks** (turn decks on and off), **Pacing**, **Show Event Log**, **Ask a Question in 3 s** (to try the notch without an agent), **Show Questions**, **Hide Notch**, and **Quit Meanwhile**.
+
+Not in the mood? Press **Hide** in the notch (or ⌃⌥H). The notch folds away for the rest of the agent's turn and no new rounds start; an eye icon shows it's hidden. Click the notch, or use **Show Questions** in the menu, to bring the questions back. The next agent turn starts visible again.
 
 ## Settings
 

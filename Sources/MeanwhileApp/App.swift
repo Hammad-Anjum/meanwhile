@@ -78,6 +78,7 @@ final class StatusMenu: NSObject {
         menu.addItem(.separator())
         // For trying the notch without an agent. The delay gives you time to click back into the terminal.
         add("Ask a Question in 3 s", #selector(askSoon), to: menu)
+        add("Show Questions", #selector(showQuestions), to: menu)
         add("Hide Notch", #selector(hideNotch), to: menu)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Meanwhile", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -117,6 +118,7 @@ final class StatusMenu: NSObject {
     @objc private func showEventLog() { delegate.showEventLog() }
     @objc private func askSoon() { delegate.askSoon() }
     @objc private func hideNotch() { delegate.notch.hide() }
+    @objc private func showQuestions() { delegate.notch.showQuestions() }
 }
 
 @MainActor

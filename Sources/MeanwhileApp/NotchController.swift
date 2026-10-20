@@ -118,6 +118,9 @@ final class NotchModel: ObservableObject {
     @Published var nextRound: Date?
     /// Set when the cap stopped the rounds: "20 questions this turn".
     @Published var capNote: String?
+    /// The user hid the questions for this turn: the notch stays compact, no new rounds
+    /// start, until they show them again or the next turn starts.
+    @Published var hidden = false
     @Published var results: [RecapItem] = []
 
     var right: Int { results.filter(\.correct).count }
@@ -175,6 +178,7 @@ final class NotchController {
     init() {
         Hotkeys.shared.onAnswer = { [weak self] index in self?.hotkey(index) }
         Hotkeys.shared.onNext = { [weak self] in self?.next() }
+        Hotkeys.shared.onHide = { [weak self] in self?.hideQuestions() }
     }
 
     // MARK: Agent turn
@@ -194,8 +198,32 @@ final class NotchController {
         model.limit = settings.questionsPerRound
         model.nextRound = nil
         model.capNote = nil
+        model.hidden = false
         model.content = .nothing
         advance()
+    }
+
+    /// "Hide" (or ⌃⌥H): fold the notch to compact for the rest of this turn. What was on
+    /// screen stays, unanswered, to come back to; no new rounds start while hidden.
+    func hideQuestions() {
+        guard model.status != .idle, !model.hidden else { return }
+        model.hidden = true
+        pendingTask?.cancel()
+        Hotkeys.shared.disable()
+        showCompact()
+    }
+
+    /// Click on the compact notch, or "Show Questions" in the menu: back to what was on screen.
+    func showQuestions() {
+        guard model.hidden else { return expandFromCompact() }
+        model.hidden = false
+        switch model.content {
+        case .question, .optIn:
+            Hotkeys.shared.enable()
+            showExpanded()
+        case .nothing, .enough, .recap:
+            expandFromCompact()
+        }
     }
 
     /// Settings changed from the menu: the current round's size and the next round's time follow.
@@ -211,7 +239,7 @@ final class NotchController {
     /// Every second: starts the next round once it's due and nothing is on screen. Waits
     /// while the agent needs you; never ends a question or the opt-in card early.
     func tick(now: Date) {
-        guard paced, model.status == .working, let due = model.nextRound, now >= due else { return }
+        guard paced, model.status == .working, !model.hidden, let due = model.nextRound, now >= due else { return }
         switch model.content {
         case .enough, .nothing:
             model.asked = 0
@@ -256,6 +284,9 @@ final class NotchController {
         model.status = .done
         model.turnEnded = Date()
         switch model.content {
+        case _ where model.hidden:
+            // Hidden: the question left on screen goes unanswered; the notch winds down.
+            showRecapOrDone()
         case .question, .optIn:
             showExpanded()
         default:
@@ -285,6 +316,7 @@ final class NotchController {
         paced = false
         model.nextRound = nil
         model.capNote = nil
+        model.hidden = false
         model.status = .working
         model.agentName = "Meanwhile"
         model.repo = ""
@@ -371,7 +403,7 @@ final class NotchController {
     }
 
     /// Click on the compact notch: open whatever there is to see.
-    func expandFromCompact() {
+    private func expandFromCompact() {
         switch model.content {
         case .nothing:
             if model.status == .done, !model.results.isEmpty { model.content = .recap; showExpanded() }
@@ -467,6 +499,8 @@ final class NotchController {
     // MARK: Window
 
     private func showExpanded() {
+        // Everything that would open the notch by itself stays compact while hidden.
+        if model.hidden { return showCompact() }
         transitionTask?.cancel()
         guard let screen = Self.screen else { return }
         let notch = notchView()
