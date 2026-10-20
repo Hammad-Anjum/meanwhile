@@ -114,13 +114,13 @@ meanwhile uninstall --purge  # also deletes all Meanwhile data, after asking
 
 ## Privacy
 
-Everything Meanwhile stores stays on your Mac, in files only your user can read. Meanwhile has no servers and no telemetry. The only thing that leaves your Mac is a small, redacted excerpt of a turn (or, once per repo, of its docs), sent through your own `codex` or `claude` CLI under your own account, and only for repos you turned on. Files that usually hold secrets are never read. See [docs/privacy.md](docs/privacy.md) for the details and how to delete everything.
+Everything Meanwhile stores stays on your Mac, in files only your user can read. Meanwhile has no servers and no telemetry. The only thing that leaves your Mac is a small, redacted excerpt of a turn (or, once per repo, of its docs), sent through your own `codex` or `claude` CLI under your own account, and only for repos you turned on. Files that usually hold secrets are never read. See [PRIVACY.md](PRIVACY.md) for the details and how to delete everything.
 
 ## Development
 
 Requires macOS 14+ and a Swift 6 toolchain (Xcode 16+ or the Command Line Tools). Everything builds with SwiftPM.
 
-The design is in [docs/](docs/README.md), the task list in [docs/mvp-plan.md](docs/mvp-plan.md), and progress with diagrams in [docs/progress.html](docs/progress.html). A clickable mockup is in [mockup/index.html](mockup/index.html).
+A clickable mockup of the notch is in [mockup/index.html](mockup/index.html).
 
 ### Build
 
@@ -161,4 +161,3 @@ Push a tag like `v0.2.0`. `.github/workflows/release.yml` sets the version from 
 | `Sources/MeanwhileApp` | The `meanwhile` command: the background notch process and the CLI |
 | `Tests/` | Core tests and recorded hook payloads |
 | `scripts/` | Packaging, versioning, spike and fixture scripts |
-| `docs/` | Design docs |

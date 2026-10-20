@@ -110,4 +110,9 @@ Not removed by it: the hook-file backups (`~/.claude/settings.json.meanwhile-bac
 
 Meanwhile only runs your own, unmodified `codex` or `claude` CLI and lets it handle its own login. It never reads, copies, stores or forwards your tokens or credential files (such as `~/.codex/auth.json` or the Claude keychain entry). Calls draw from the same usage limits as your own agent work.
 
-For what each provider's terms say about this, see the [Provider table in the design README](README.md#terms-check-running-the-agents-clis-on-the-users-plan-task-07-2026-10-19).
+What the providers' terms say about this, as of October 2026:
+
+- **Anthropic (`claude`).** Signing in to the unmodified Claude Code binary with your own subscription is allowed; third parties may not handle or forward Claude.ai credentials. Anthropic recommends API keys for developer products. See [Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance).
+- **OpenAI (`codex`).** No rule found against a local tool running your own CLI; reading `~/.codex/auth.json` or calling the backend directly is not allowed, and OpenAI recommends API keys for automation. See the [Codex auth docs](https://learn.chatgpt.com/docs/auth).
+
+If you'd rather use an API key, log the CLI in with one; Meanwhile passes `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` through to it when they are set.

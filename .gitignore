@@ -4,4 +4,8 @@
 # Dev-only hook configs for the spike (point at this machine's hook binary)
 .claude/settings.local.json
 .codex/
+# Built release files (scripts/package.sh)
 dist/
+# Design docs, plans and the progress tracker stay private
+docs/
+CLAUDE.md
