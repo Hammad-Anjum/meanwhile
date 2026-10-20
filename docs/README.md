@@ -40,6 +40,7 @@ Status: **early build**. Phase 0 is done; Phase 1 is next. See [`progress.html`]
 | [architecture.md](architecture.md) | Components, processes, data flow for one agent turn, storage, the notch app |
 | [question-engine.md](question-engine.md) | How questions are made for large repos without reading the docs twice, plus validation, timing, and cost |
 | [integrations.md](integrations.md) | Hook mapping for Claude Code, Codex, and Cursor; the shared event schema; gaps per agent |
+| [privacy.md](privacy.md) | What Meanwhile stores on your Mac, what it sends to the question provider, opt-in and "Never", deleting everything |
 | [research.md](research.md) | Competitors, evidence that the problem is real, learning-science basis, sources |
 | [progress.html](progress.html) | Visual tracker: high- and low-level diagrams of the current structure, task status, change log |
 | [mvp-plan.md](mvp-plan.md) | v1 scope, tech stack, repo layout, flows, phased task list, where to start |
