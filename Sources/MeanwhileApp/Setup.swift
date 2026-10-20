@@ -22,6 +22,9 @@ extension MeanwhileCommand {
         @Flag(help: "Don't install the launch agent or start Meanwhile.")
         var noStart = false
 
+        @Flag(help: "Don't make the test call to the question provider.")
+        var skipModelCheck = false
+
         func run() throws {
             print("""
             Meanwhile asks short questions in the notch while your coding agent works:
@@ -55,7 +58,7 @@ extension MeanwhileCommand {
                 return
             }
 
-            // 2. Install.
+            // 2. Install. The Codex trust step comes last, whatever happens after the hooks are in.
             try Binaries.installHook(from: paths.hook)
             try Binaries.installApp(from: paths.meanwhile)
             for plan in plans where plan.changes {
@@ -63,14 +66,9 @@ extension MeanwhileCommand {
                 print("✓ \(plan.agent.displayName): updated \(Setup.tilde(plan.file.path))"
                       + (backup.map { " (backup: \($0.lastPathComponent))" } ?? ""))
             }
+            defer { if chosen.contains(.codex) { Setup.codexTrustStep() } }
             if let provider { UserDefaults.standard.set(provider, forKey: Provider.key) }
-            if chosen.contains(.codex) {
-                print("""
-
-                ! Codex skips new hooks until you trust them. In Codex, run /hooks and trust the
-                  Meanwhile entries. Questions appear for Codex turns after that.
-                """)
-            }
+            if !skipModelCheck { Setup.checkProvider(provider) }
 
             // 3. Start in the background, then show a question.
             guard !noStart else {
@@ -88,6 +86,43 @@ extension MeanwhileCommand {
             } else {
                 Setup.testQuestion()
             }
+        }
+
+        /// One tiny real call to the provider, so a missing login shows up now and not as
+        /// questions that never come. Never fails setup: deck questions work without it.
+        static func checkProvider(_ provider: String?, timeout: TimeInterval = 60) {
+            print()
+            guard let provider else {
+                print(ProviderCheck.message(for: .notInstalled, provider: "codex"))
+                print("  Or use Claude Code. Setup goes on; codebase questions start once a provider works.")
+                return
+            }
+            print("Checking \(provider) with one tiny question (up to \(Int(timeout)) s)...")
+            let result = ProviderCheck.run(provider: provider, timeout: timeout)
+            print(ProviderCheck.message(for: result, provider: provider))
+            if !result.succeeded {
+                print("  Setup goes on; codebase questions start once \(provider) works. Deck questions work now.")
+            }
+        }
+
+        /// Codex runs a new hook only after the user trusts it in `/hooks`. Says so prominently,
+        /// unless Codex's config shows that's already done.
+        static func codexTrustStep() {
+            let status = CodexHookTrust().check()
+            if status == .trusted {
+                print("\n✓ Codex: Meanwhile's hooks are trusted.")
+                return
+            }
+            print("""
+
+            ┌─ One more step for Codex ──────────────────────────────────────
+            │ Codex runs new hooks only after you trust them:
+            │   1. Open Codex.
+            │   2. Type /hooks.
+            │   3. Trust each Meanwhile entry (they run meanwhile-hook).
+            │ Until then, Codex turns show no questions.
+            └────────────────────────────────────────────────────────────────
+            """)
         }
 
         static func agents(_ requested: String?, detected: [HookInstaller.Agent]) throws -> [HookInstaller.Agent] {
@@ -167,13 +202,16 @@ extension MeanwhileCommand {
         }
     }
 
-    /// `meanwhile uninstall`: removes the hooks, the launch agent and the installed hook.
-    /// Progress and stored events stay unless deleted by hand.
+    /// `meanwhile uninstall`: removes the hooks, the launch agent and the installed binaries.
+    /// Progress, settings and logs stay unless `--purge` is given.
     struct Uninstall: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Remove the agent hooks and stop Meanwhile.")
 
         @Flag(name: .shortAndLong, help: "Remove without asking.")
         var yes = false
+
+        @Flag(help: "Also delete all of Meanwhile's data: progress, questions, settings and logs.")
+        var purge = false
 
         func run() throws {
             let installer = HookInstaller(hookPath: Binaries.installedHook.path)
@@ -182,7 +220,10 @@ extension MeanwhileCommand {
                 print("\(plan.agent.displayName): remove Meanwhile's hooks on \(plan.removed.joined(separator: ", ")) from \(Setup.tilde(plan.file.path))")
             }
             print("Stop Meanwhile and remove it from login items.")
-            guard yes || Setup.confirm("Remove?") else {
+            let purged = purge ? Purge.existing(Purge.targets(
+                home: FileManager.default.homeDirectoryForCurrentUser, environment: ProcessInfo.processInfo.environment)) : []
+            if purge { Uninstall.describe(purged) }
+            guard yes || Setup.confirm(purge ? "Remove, and delete this data for good?" : "Remove?") else {
                 print("Nothing changed.")
                 return
             }
@@ -192,11 +233,29 @@ extension MeanwhileCommand {
             }
             try LaunchAgent(executable: "").uninstall()
             try? FileManager.default.removeItem(at: Binaries.directory)
-            print("""
-            ✓ Meanwhile is stopped and won't start at login.
-            Your progress and recent events are still in \(Setup.tilde(MeanwhilePaths.supportDirectory.path)).
-            Delete that folder to remove them too.
-            """)
+            print("✓ Meanwhile is stopped and won't start at login.")
+            if purge {
+                try Purge.remove(purged.map(\.url))
+                print("✓ Deleted Meanwhile's data. Nothing of it is left.")
+            } else {
+                print("""
+                Your progress, settings and logs are kept (\(Setup.tilde(MeanwhilePaths.supportDirectory.path)) and others).
+                Run `meanwhile uninstall --purge` to delete them too.
+                """)
+            }
+        }
+
+        /// The folders `--purge` deletes, with their sizes.
+        static func describe(_ targets: [(url: URL, bytes: Int64)]) {
+            guard !targets.isEmpty else {
+                print("No Meanwhile data to delete.")
+                return
+            }
+            print("Delete for good:")
+            for target in targets {
+                let size = ByteCountFormatter.string(fromByteCount: target.bytes, countStyle: .file)
+                print("  \(Setup.tilde(target.url.path))  (\(size))")
+            }
         }
     }
 }
