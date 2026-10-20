@@ -123,7 +123,8 @@ extension MeanwhileCommand {
             if repos.isEmpty { print("No repos yet. Send your agent a prompt in a repo.") }
             for repo in repos {
                 let access = repo.accessError.map { "can't read: \($0)" } ?? repo.fileCount.map { "\($0) files" } ?? "not read yet"
-                print("\(repo.root)  [\(repo.state.rawValue)]  \(access)")
+                let worktree = repo.isWorktree ? "  worktree of \((repo.project as NSString).lastPathComponent)" : ""
+                print("\(repo.root)  [\(repo.state.rawValue)]  \(access)\(worktree)")
             }
         }
     }

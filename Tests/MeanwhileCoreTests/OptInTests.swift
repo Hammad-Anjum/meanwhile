@@ -6,7 +6,7 @@ import Testing
 
 private func repo(_ state: LibraryStore.Repo.State, files: Int? = 10, error: String? = nil,
                   askedAt: Date? = nil) -> LibraryStore.Repo {
-    LibraryStore.Repo(root: "/r", state: state, fileCount: files, accessError: error, askedAt: askedAt)
+    LibraryStore.Repo(root: "/r", project: "/r", state: state, fileCount: files, accessError: error, askedAt: askedAt)
 }
 
 @Test func whenToOfferCodebaseQuestions() {

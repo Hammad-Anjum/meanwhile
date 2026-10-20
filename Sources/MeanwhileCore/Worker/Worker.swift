@@ -70,6 +70,15 @@ public struct Worker: Sendable {
             try GenerationBudget(library: library).turnStarted(session: session)
         }
         let root = StackDetector.repoRoot(for: request.directory)
+        try library.noteRepo(root: root)
+        // Worktrees of one repo share a project: its opt-in, card and question pool.
+        if let checkouts = Self.checkouts(of: root) {
+            // Every live worktree already seen, so none of them offers its own opt-in card.
+            for checkout in checkouts.worktrees.union([root]) where try checkout == root || library.repo(root: checkout) != nil {
+                try library.attach(root: checkout, toProject: checkouts.project)
+            }
+            try library.pruneCheckouts(ofProject: checkouts.project, liveWorktrees: checkouts.worktrees)
+        }
         let repo = try library.noteRepo(root: root)
         // Repos turned on get the full index; others only what the opt-in card needs.
         if repo.state == .on, let indexed = try? RepoIndexer(library: library).index(root: root) {
@@ -156,6 +165,45 @@ public struct Worker: Sendable {
                           succeeded: true, duration: Date().timeIntervalSince(start))
         try library.setRepoCard(Redactor.redact(output.card), root: root)
         try library.addToPool(output.questions, from: pack, kind: GenerationBudget.Kind.primer.rawValue)
+    }
+
+    // MARK: Worktrees
+
+    /// The project (main worktree) of the checkout at `root` and all the repo's live
+    /// worktrees, from git; nil outside a git repo. Paths come back in `root`'s own spelling
+    /// where they match it, since git reports them with symlinks resolved.
+    static func checkouts(of root: String) -> (project: String, worktrees: Set<String>)? {
+        guard let list = try? Shell.run("git", ["-C", root, "worktree", "list", "--porcelain"], timeout: 10),
+              list.succeeded else { return nil }
+        let paths = list.text.split(separator: "\n")
+            .filter { $0.hasPrefix("worktree ") }
+            .map { String($0.dropFirst("worktree ".count)) }
+        // The first entry is the main worktree (for a bare repo, the repo folder).
+        guard let main = paths.first else { return nil }
+        let resolvedRoot = canonical(root)
+        func spelled(_ path: String) -> String {
+            let resolved = canonical(path)
+            if resolved == resolvedRoot { return root }
+            // Same symlinked prefix as root (e.g. /var vs /private/var): reuse root's spelling.
+            let rootSuffixParts = resolvedRoot.split(separator: "/", omittingEmptySubsequences: false)
+            let rootParts = root.split(separator: "/", omittingEmptySubsequences: false)
+            let common = zip(rootSuffixParts.reversed(), rootParts.reversed()).prefix { $0 == $1 }.count
+            let resolvedPrefix = rootSuffixParts.dropLast(common).joined(separator: "/")
+            let rootPrefix = rootParts.dropLast(common).joined(separator: "/")
+            if resolvedPrefix != rootPrefix, resolved.hasPrefix(resolvedPrefix + "/") {
+                return rootPrefix + resolved.dropFirst(resolvedPrefix.count)
+            }
+            return path
+        }
+        return (spelled(main), Set(paths.map(spelled)))
+    }
+
+    /// The path with every symlink resolved, as git reports it. (Foundation's
+    /// `resolvingSymlinksInPath` maps /private/var back to /var, so it can't be used.)
+    private static func canonical(_ path: String) -> String {
+        guard let resolved = realpath(path, nil) else { return path }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     // MARK: Lock

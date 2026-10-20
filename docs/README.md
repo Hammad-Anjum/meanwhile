@@ -30,6 +30,8 @@ Status: **early build**. Phase 0 is done; Phase 1 is next. See [`progress.html`]
 | Shape | A command-line tool, not an app: one `meanwhile` program that runs the notch in the background (`meanwhile run`) and sets itself up (`meanwhile setup`). A full `.app` only if there are many paying customers | 2026-10-19 |
 | Install | A `curl … \| sh` script that downloads a ready-built program from a GitHub release and runs `meanwhile setup`. A Homebrew tap can come later from the same release files | 2026-10-19 |
 | Provider default | `codex exec` on the user's ChatGPT plan, for now. Claude CLI and API keys remain options | 2026-10-19 |
+| Git worktrees | One project per repo: all worktrees share the opt-in, repo card and question pool; each keeps its own file index. A question shows in a worktree only if the files it cites match there, so branch-only questions stay on their branch until merged | 2026-10-20 |
+| Pacing | Rounds of questions: the first with the agent's turn, then one every interval, up to a cap per turn or per day. All three are settings (presets or a typed value); defaults 3 per round, every 2 minutes, 20 per turn | 2026-10-20 |
 
 ## Documents
 

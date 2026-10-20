@@ -201,7 +201,19 @@ public struct EvidenceBuilder: Sendable {
         let candidate = (path.hasPrefix("/") ? URL(fileURLWithPath: path) : rootURL.appendingPathComponent(path)).standardizedFileURL
         let prefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
         guard candidate.path.hasPrefix(prefix) else { return nil }
-        return String(candidate.path.dropFirst(prefix.count))
+        let relative = String(candidate.path.dropFirst(prefix.count))
+        return isInNestedCheckout(relative, root: rootURL.path) ? nil : relative
+    }
+
+    /// Whether `relative` sits in another checkout inside `root` (a worktree under
+    /// `.claude/worktrees/`, a nested clone): its edits belong to that checkout, not this one.
+    static func isInNestedCheckout(_ relative: String, root: String) -> Bool {
+        var directory = root
+        for part in relative.split(separator: "/").dropLast() {
+            directory += "/" + part
+            if FileManager.default.fileExists(atPath: directory + "/.git") { return true }
+        }
+        return false
     }
 
     static func directory(_ path: String, isInside root: String) -> Bool {

@@ -126,7 +126,8 @@ final class Quiz {
     func pendingOptIn() -> (name: String, root: String)? {
         guard !offeredOptIn, let repo, repo.shouldAsk() else { return nil }
         offeredOptIn = true
-        return (repo.name, repo.root)
+        // Named for the project: the answer covers all its worktrees.
+        return ((repo.project as NSString).lastPathComponent, repo.root)
     }
 
     func answerOptIn(root: String, choice: NotchModel.OptInChoice) {
@@ -159,7 +160,7 @@ final class Quiz {
                 candidates.append(.init(id: card.id, deck: pack.id, deckTitle: pack.title))
             }
         }
-        if let repo, repo.state == .on, let library, let pool = try? library.poolQuestions(root: repo.root) {
+        if let repo, repo.state == .on, let library, let pool = try? library.poolQuestions(visibleIn: repo.root) {
             let busiest = max(1, (try? library.maxCommits(root: repo.root)) ?? 1)
             for question in pool {
                 questions[question.id] = QuizQuestion(pool: question)

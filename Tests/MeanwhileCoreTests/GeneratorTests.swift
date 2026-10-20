@@ -181,3 +181,16 @@ private func line(_ event: String, _ fields: [String: Any], root: URL) throws ->
     #expect(try library.poolQuestions(root: repo.path).isEmpty)
     #expect(try GenerationBudget(library: library).callsToday() == 2, "primer and live, both failed, both counted")
 }
+
+@Test func theSameQuoteFromTheSameFileIsADuplicate() throws {
+    let (repo, library) = try repoWithRateLimit()
+    defer { try? FileManager.default.removeItem(at: repo) }
+    let pack = EvidencePack(kind: .postTurn, root: repo.path, session: "s", sections: [],
+                            sources: [.init(path: "Sources/App.swift", blob: nil, text: "let window = 60")],
+                            score: 5, hookOnly: false, editedPaths: ["Sources/App.swift"])
+    try library.addToPool([draft()], from: pack, kind: "post-turn")
+    // Worded differently, but asking about the same line.
+    let result = try library.addToPool([draft(question: "Which window length does rateLimit() use?")], from: pack, kind: "post-turn")
+    #expect(result.added.isEmpty)
+    #expect(result.rejected.first?.1.contains(.duplicate) == true)
+}
