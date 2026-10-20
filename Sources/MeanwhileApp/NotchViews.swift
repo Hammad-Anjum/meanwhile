@@ -41,8 +41,16 @@ struct NotchExpandedView: View {
         case .question(let state):
             QuestionView(model: model, state: state, controller: controller)
         case .enough:
-            EmptyNote(title: "That’s enough for this wait",
-                      detail: "You hit your limit of \(model.limit) questions. Keep an eye on the agent now.")
+            if let capNote = model.capNote {
+                EmptyNote(title: "That’s your limit", detail: "You’ve had \(capNote). Change it from the menu bar icon.")
+            } else if let next = model.nextRound {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Round done").font(.system(size: 14, weight: .semibold))
+                    (Text("Next round in ") + Text(countdownTo: next)).font(.caption).foregroundStyle(NotchColor.muted)
+                }
+            } else {
+                EmptyNote(title: "Round done", detail: "No more rounds this turn.")
+            }
         case .recap:
             RecapView(model: model)
         case .optIn(let name, _):
@@ -426,6 +434,9 @@ struct NotchCompactTrailing: View {
             switch model.status {
             case .working where model.remaining > 0:
                 Label("\(model.remaining)", systemImage: "questionmark.bubble")
+            case .working where model.nextRound != nil:
+                // Time to the next round of questions.
+                Label { Text(countdownTo: model.nextRound!) } icon: { Image(systemName: "clock") }
             case .done where !model.results.isEmpty:
                 Text("\(model.right)/\(model.results.count)")
             default:
@@ -458,6 +469,11 @@ extension Text {
     /// A live m:ss counter from `start`.
     init(timer start: Date) {
         self.init(timerInterval: start...Date.distantFuture, countsDown: false)
+    }
+
+    /// A live m:ss countdown to `end`; 0:00 once it has passed.
+    init(countdownTo end: Date) {
+        self.init(timerInterval: min(Date(), end)...end, countsDown: true)
     }
 }
 

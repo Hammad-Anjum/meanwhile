@@ -9,7 +9,15 @@ final class Quiz {
     private let reviews: ReviewStore?
     /// What the worker knows about repos; the app can't read repos under ~/Desktop itself.
     private let library: LibraryStore?
-    let selector = QuestionSelector()
+    /// The notch limits a round and the cap is checked here, so the selector itself never
+    /// stops a wait.
+    private(set) var selector: QuestionSelector = {
+        var selector = QuestionSelector()
+        selector.limitPerWait = .max
+        return selector
+    }()
+    /// Pacing and the cap, from the config file; re-read at every wait.
+    var settings = UserSettings.load()
     private var asked: [QuestionSelector.Candidate] = []
     private var cwd = FileManager.default.currentDirectoryPath
     private var session: String?
@@ -28,7 +36,14 @@ final class Quiz {
     /// The prediction waiting for the agent: its kind, and for files the path behind each option.
     private var pendingPrediction: (kind: Prediction.Kind, paths: [String])?
 
-    var limitPerWait: Int { selector.limitPerWait }
+    /// Questions this wait, not counting predictions: what a per-turn cap counts.
+    private var askedThisTurn: Int { asked.filter { $0.id != "prediction" }.count }
+
+    /// The cap is reached for this turn or today, whichever the settings count.
+    var capReached: Bool {
+        let today = (try? reviews?.shownCount(since: Calendar.current.startOfDay(for: Date()))) ?? 0
+        return settings.capReached(thisTurn: askedThisTurn, today: today)
+    }
 
     init(decks: Decks, reviews: ReviewStore?, library: LibraryStore?) {
         self.decks = decks
@@ -48,6 +63,7 @@ final class Quiz {
         pendingPrediction = nil
         self.prompt = prompt ?? ""
         self.session = session
+        settings = UserSettings.load()
         self.cwd = cwd
     }
 
@@ -125,10 +141,12 @@ final class Quiz {
     /// The next question for this wait, or nil when its limit is reached or nothing fits.
     func next() -> QuizQuestion? {
         if let prediction = prediction() {
-            // Takes one of the wait's slots, but never enters spaced repetition.
+            // Takes a slot in the first round, but never counts toward the cap or enters
+            // spaced repetition.
             asked.append(.init(id: "prediction", deck: "prediction", deckTitle: "Prediction"))
             return prediction
         }
+        guard !capReached else { return nil }
         let repo = self.repo
         var questions: [String: QuizQuestion] = [:]
         var candidates: [QuestionSelector.Candidate] = []

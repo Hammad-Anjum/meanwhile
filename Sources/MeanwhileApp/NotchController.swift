@@ -90,7 +90,7 @@ final class NotchModel: ObservableObject {
     enum Content: Equatable {
         case nothing
         case question(QuestionState)
-        /// The wait's question limit is reached.
+        /// This round is over: the next one comes at `nextRound`, or the cap is reached (`capNote`).
         case enough
         case recap
         /// "Turn on codebase questions for <name>?" (task 2.2). Not counted as a question.
@@ -111,16 +111,22 @@ final class NotchModel: ObservableObject {
     @Published var turnStarted = Date()
     @Published var turnEnded: Date?
     @Published var content = Content.nothing
+    /// Questions shown in this round, and the round's size.
     @Published var asked = 0
     @Published var limit = 3
+    /// When the next round starts; nil during a round, or when no more rounds come.
+    @Published var nextRound: Date?
+    /// Set when the cap stopped the rounds: "20 questions this turn".
+    @Published var capNote: String?
     @Published var results: [RecapItem] = []
 
     var right: Int { results.filter(\.correct).count }
 
-    /// Questions still to come in this wait, counting an unanswered one on screen.
+    /// Questions still to come in this round, counting an unanswered one on screen.
     var remaining: Int {
         var open = 0
         if case .question(let state) = content, state.answer == nil { open = 1 }
+        guard nextRound == nil, capNote == nil else { return open }
         return max(0, limit - asked) + open
     }
 
@@ -151,6 +157,12 @@ final class NotchController {
     var onSkip: ((QuizQuestion) -> Void)?
     /// "Report wrong question" (task 2.10).
     var onReport: ((QuizQuestion) -> Void)?
+    /// Whether the question cap is reached, checked when a round runs out of questions.
+    var capReached: (() -> Bool)?
+    /// Round size, interval and cap.
+    private var settings = UserSettings()
+    /// Rounds repeat during an agent turn, not for a one-off question from the menu.
+    private var paced = false
     /// A prediction picked and waiting for the agent: (question, choice).
     private var pendingPrediction: (question: QuizQuestion, choice: Int)?
 
@@ -167,9 +179,11 @@ final class NotchController {
 
     // MARK: Agent turn
 
-    /// A new agent turn: reset the wait and show its first question.
-    func startTurn(agent: AgentEvent.Agent, repo: String, since: Date, limit: Int) {
+    /// A new agent turn: reset the wait and start its first round.
+    func startTurn(agent: AgentEvent.Agent, repo: String, since: Date, settings: UserSettings) {
         pendingPrediction = nil
+        self.settings = settings
+        paced = true
         model.status = .working
         model.agentName = agent == .codex ? "Codex" : agent == .cursor ? "Cursor" : "Claude Code"
         model.repo = repo
@@ -177,9 +191,35 @@ final class NotchController {
         model.turnEnded = nil
         model.results = []
         model.asked = 0
-        model.limit = limit
+        model.limit = settings.questionsPerRound
+        model.nextRound = nil
+        model.capNote = nil
         model.content = .nothing
         advance()
+    }
+
+    /// Settings changed from the menu: the current round's size and the next round's time follow.
+    func update(_ settings: UserSettings) {
+        self.settings = settings
+        guard paced, model.status != .idle else { return }
+        model.limit = settings.questionsPerRound
+        if model.nextRound != nil {
+            model.nextRound = settings.nextRound(after: Date(), turnStarted: model.turnStarted)
+        }
+    }
+
+    /// Every second: starts the next round once it's due and nothing is on screen. Waits
+    /// while the agent needs you; never ends a question or the opt-in card early.
+    func tick(now: Date) {
+        guard paced, model.status == .working, let due = model.nextRound, now >= due else { return }
+        switch model.content {
+        case .enough, .nothing:
+            model.asked = 0
+            model.nextRound = nil
+            advance()
+        case .question, .optIn, .recap:
+            break
+        }
     }
 
     /// The agent is waiting on the user: step back to the attention state. What was on
@@ -242,6 +282,9 @@ final class NotchController {
     /// From the menu: a one-off question outside an agent turn.
     func askOnce(_ question: QuizQuestion) {
         pendingPrediction = nil
+        paced = false
+        model.nextRound = nil
+        model.capNote = nil
         model.status = .working
         model.agentName = "Meanwhile"
         model.repo = ""
@@ -368,13 +411,22 @@ final class NotchController {
             model.content = .optIn(name: repo.name, root: repo.root)
             Hotkeys.shared.enable()
             showExpanded()
-        } else if let question = nextQuestion?() {
+        } else if model.asked < model.limit, let question = nextQuestion?() {
             show(question)
         } else {
-            model.content = model.asked > 0 ? .enough : .nothing
-            Hotkeys.shared.disable()
-            showCompact()
+            endRound()
         }
+    }
+
+    /// The round is full or nothing fits: wait for the next round, unless the cap is reached.
+    private func endRound() {
+        let capped = capReached?() ?? false
+        model.capNote = capped ? settings.maxQuestions.map { "\($0) questions \(settings.capScopeText)" } : nil
+        model.nextRound = paced && !capped && model.status == .working
+            ? settings.nextRound(after: Date(), turnStarted: model.turnStarted) : nil
+        model.content = model.asked > 0 || capped ? .enough : .nothing
+        Hotkeys.shared.disable()
+        showCompact()
     }
 
     private func show(_ question: QuizQuestion) {

@@ -231,6 +231,11 @@ public final class ReviewStore: Sendable {
         try writer.read { Set(try String.fetchAll($0, sql: "SELECT cardID FROM suppressed")) }
     }
 
+    /// Questions shown since `date`, for the daily cap. A reported display still counts.
+    public func shownCount(since date: Date) throws -> Int {
+        try writer.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM shown WHERE shownAt >= ?", arguments: [date]) ?? 0 }
+    }
+
     /// Share right over the last `count` answers; nil with fewer than `minimum`.
     public func recentAccuracy(last count: Int = 20, minimum: Int = 8) throws -> Double? {
         try writer.read { db in

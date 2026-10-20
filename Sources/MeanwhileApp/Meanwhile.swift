@@ -9,8 +9,8 @@ struct MeanwhileCommand: ParsableCommand {
         commandName: "meanwhile",
         abstract: "Short questions in the notch while your coding agent works.",
         version: Meanwhile.version,
-        subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Work.self, ModelCheck.self, Generate.self,
-                      Version.self],
+        subcommands: [Run.self, Setup.self, Uninstall.self, Repos.self, Config.self, Work.self, ModelCheck.self,
+                      Generate.self, Version.self],
         defaultSubcommand: Run.self
     )
 }
@@ -125,6 +125,45 @@ extension MeanwhileCommand {
                 let access = repo.accessError.map { "can't read: \($0)" } ?? repo.fileCount.map { "\($0) files" } ?? "not read yet"
                 print("\(repo.root)  [\(repo.state.rawValue)]  \(access)")
             }
+        }
+    }
+
+    struct Config: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Show or change settings.",
+            discussion: """
+                meanwhile config                        show every setting
+                meanwhile config questions_per_round 3  change one
+                The app picks a change up at the next agent turn.
+                """)
+
+        @Argument(help: "The setting to change.")
+        var key: String?
+
+        @Argument(help: "Its new value.")
+        var value: String?
+
+        func run() throws {
+            var settings = UserSettings.load()
+            guard let key else {
+                print("Settings in \(UserSettings.defaultURL.path):")
+                for entry in UserSettings.keys {
+                    print("  \(entry.name) = \(settings.value(of: entry.name) ?? "")    # \(entry.help)")
+                }
+                return
+            }
+            guard let value else {
+                guard let current = settings.value(of: key) else { throw ValidationError(SettingsError.unknownKey(key).description) }
+                print(current)
+                return
+            }
+            do {
+                try settings.set(key, to: value)
+            } catch let error as SettingsError {
+                throw ValidationError(error.description)
+            }
+            try settings.save()
+            print("\(key) = \(settings.value(of: key) ?? value). The app uses it from the next agent turn.")
         }
     }
 

@@ -231,7 +231,7 @@ Progress:
 
 | # | Task | Size | Done when |
 |---|---|---|---|
-| 5.1 | Settings in `~/.config/meanwhile/config.toml` plus `meanwhile config` commands: decks and topics, question types, mix, limit per wait, behavior when the agent finishes, provider, per-repo switches | M | Every setting changes behavior |
+| 5.1 | Settings in `~/.config/meanwhile/config.toml` plus `meanwhile config` commands: decks and topics, question types, mix, limit per wait, behavior when the agent finishes, provider, per-repo switches. **Started 2026-10-20:** pacing (`questions_per_round`, `round_interval`, `max_questions`, `max_questions_per`) in the file, `meanwhile config` and the menu bar's Pacing menu | M | Every setting changes behavior |
 | 5.2 | **Generic deck editor:** add, edit and delete cards; create a deck from a topic (written by AI once, then editable); import and export JSON | M | A custom deck shows up in the notch |
 | 5.3 | Recap view | S | Matches the mockup |
 | 5.4 | Display placement: follow the agent's terminal or editor window; fall back to the built-in notch | M | Works with an external monitor |

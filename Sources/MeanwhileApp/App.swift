@@ -55,9 +55,11 @@ enum MenuBarApp {
 final class StatusMenu: NSObject {
     private let delegate: AppDelegate
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let pacingMenu: PacingMenu
 
     init(delegate: AppDelegate) {
         self.delegate = delegate
+        pacingMenu = PacingMenu(apply: { [weak delegate] settings in delegate?.apply(settings) })
         super.init()
         item.button?.image = NSImage(systemSymbolName: "questionmark.bubble", accessibilityDescription: "Meanwhile")
         let menu = NSMenu()
@@ -69,6 +71,9 @@ final class StatusMenu: NSObject {
         let decks = NSMenuItem(title: "Decks", action: nil, keyEquivalent: "")
         decks.submenu = decksMenu()
         menu.addItem(decks)
+        let pacing = NSMenuItem(title: "Pacing", action: nil, keyEquivalent: "")
+        pacing.submenu = pacingMenu.menu
+        menu.addItem(pacing)
         menu.addItem(.separator())
         // For trying the notch without an agent. The delay gives you time to click back into the terminal.
         add("Ask a Question in 3 s", #selector(askSoon), to: menu)
@@ -156,6 +161,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notch.onRevise = { [quiz] question, confidence in quiz.revise(question, confidence: confidence) }
         notch.onSkip = { [quiz] question in quiz.skipped(question) }
         notch.onReport = { [quiz] question in quiz.report(question) }
+        notch.capReached = { [quiz] in quiz.capReached }
+    }
+
+    /// Settings changed from the menu: saved to the config file and applied now.
+    func apply(_ settings: UserSettings) {
+        do {
+            try settings.save()
+        } catch {
+            FileHandle.standardError.write(Data("[settings] could not save \(UserSettings.defaultURL.path): \(error)\n".utf8))
+        }
+        quiz.settings = settings
+        notch.update(settings)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -183,6 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Hooks spool when the socket refuses them (a burst); pick those up while running.
                 if ticks % 5 == 0 { self.log.drainSpool() }
                 self.handle(self.tracker.tick(now: Date()))
+                self.notch.tick(now: Date())
             }
         }
         // The menu bar icon can be hidden behind the notch on a crowded menu bar;
@@ -212,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let cwd = state?.cwd ?? FileManager.default.currentDirectoryPath
                 quiz.startWait(session: transition.session, cwd: cwd, prompt: state?.lastPrompt)
                 notch.startTurn(agent: state?.agent ?? .claude, repo: quiz.repoName(for: cwd),
-                                since: state?.turnStartedAt ?? Date(), limit: quiz.limitPerWait)
+                                since: state?.turnStartedAt ?? Date(), settings: quiz.settings)
             case (_, .needsInput):
                 notch.needsInput()
             case (_, .done):
