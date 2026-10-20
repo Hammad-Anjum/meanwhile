@@ -217,6 +217,11 @@ public final class EventServer: @unchecked Sendable {
         onLine: @Sendable (Data) -> Void
     ) {
         defer { close(client) }
+        // On macOS an accepted socket inherits O_NONBLOCK from the listener. Then a read
+        // before the sender's next write returns EAGAIN, and the rest of a large event was
+        // dropped (seen as a flaky largePayloadArrivesWhole). Block, with the timeout below.
+        let flags = fcntl(client, F_GETFL)
+        if flags >= 0 { _ = fcntl(client, F_SETFL, flags & ~O_NONBLOCK) }
         var timeout = timeval(tv_sec: 5, tv_usec: 0)
         setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
